@@ -1,0 +1,50 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "helm-watch.fullname" . }}
+  labels:
+    app.kubernetes.io/name: {{ include "helm-watch.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "helm-watch.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "helm-watch.name" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+    spec:
+      serviceAccountName: {{ include "helm-watch.serviceAccountName" . }}
+      containers:
+        - name: helm-watch
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - containerPort: 8080
+              name: http
+          env:
+            - name: HELM_WATCH_HTTP_ADDR
+              value: ":8080"
+            - name: HELM_WATCH_LOG_LEVEL
+              value: {{ .Values.config.logLevel | quote }}
+            - name: HELM_WATCH_RECONCILE_EVERY
+              value: {{ .Values.config.reconcileEvery | quote }}
+            - name: HELM_WATCH_REPO_CACHE_TTL
+              value: {{ .Values.config.repoCacheTTL | quote }}
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          resources:
+{{ toYaml .Values.resources | indent 12 }}

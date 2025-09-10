@@ -63,6 +63,11 @@ Implemented so far:
 - Canonical internal data contracts
 - Discovery manager with periodic reconcile loop
 - Argo CD + Helm release source adapters
+- Repository resolver with cache and stale-on-error behavior
+- Version comparison engine
+- Core chart metrics pipeline
+- Deploy directory with Kubernetes manifests and Helm chart
+- GitHub Actions CI producing binaries and container image artifacts
 
 Planned next:
 
@@ -70,12 +75,12 @@ Planned next:
 - Version comparison engine
 - Full metrics contract and dashboards
 
-## Example Metrics (Planned Contract)
+## Example Metrics
 
 ```text
 helm_chart_info{app="alloy",namespace="monitoring",chart="alloy",repo="https://grafana.github.io/helm-charts",current_version="1.6.0",latest_version="1.8.2",deployment_type="argocd"} 1
-helm_chart_outdated{app="alloy"} 1
-helm_chart_version_lag{app="alloy"} 2
+helm_chart_outdated{app="alloy",namespace="monitoring",chart="alloy"} 1
+helm_chart_version_lag{app="alloy",namespace="monitoring",chart="alloy"} 202
 ```
 
 ## Run Locally
@@ -98,6 +103,7 @@ Useful environment variables:
 - `HELM_WATCH_HTTP_WRITE_TIMEOUT` (default `10s`)
 - `HELM_WATCH_SHUTDOWN_TIMEOUT` (default `10s`)
 - `HELM_WATCH_RECONCILE_EVERY` (default `30s`)
+- `HELM_WATCH_REPO_CACHE_TTL` (default `5m`)
 - `HELM_WATCH_KUBECONFIG` (optional fallback for local runs)
 - `HELM_WATCH_LOG_LEVEL` (default `info`)
 
@@ -105,6 +111,25 @@ Endpoints:
 
 - `GET /healthz`
 - `GET /metrics`
+
+## Deploy to Kubernetes
+
+Two deployment methods are included:
+
+- Raw manifests: `deploy/k8s/`
+- Helm chart: `deploy/helm-watch/`
+
+See `deploy/README.md` for commands.
+
+## CI Artifacts
+
+GitHub Actions workflow at `.github/workflows/ci.yml`:
+
+- runs tests
+- lints Helm chart
+- builds Linux binaries
+- builds Docker image
+- uploads artifacts (binaries + Docker image tar)
 
 ## Roadmap
 
