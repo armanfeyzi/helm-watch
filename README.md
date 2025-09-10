@@ -132,6 +132,14 @@ GitHub Actions workflow at `.github/workflows/ci.yml`:
 - builds Docker image
 - uploads artifacts (binaries + Docker image tar)
 
+Tag-based release workflow at `.github/workflows/release.yml`:
+
+- runs tests on `v*` tags
+- builds Linux release binaries (`amd64`, `arm64`)
+- lints and packages Helm chart (`.tgz`)
+- pushes multi-arch image to GHCR
+- creates GitHub Release and uploads binaries, checksums, and chart package
+
 ## Roadmap
 
 - Repository resolver and caching strategy
