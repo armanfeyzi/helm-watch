@@ -21,6 +21,7 @@ type Config struct {
 	ShutdownWindow time.Duration
 	ReconcileEvery time.Duration
 	RepoCacheTTL   time.Duration
+	ResolveWorkers int
 	KubeconfigPath string
 	LogLevel       slog.Level
 }
@@ -33,6 +34,7 @@ func FromEnv() Config {
 		ShutdownWindow: getEnvDuration("HELM_WATCH_SHUTDOWN_TIMEOUT", defaultShutdownWindow),
 		ReconcileEvery: getEnvDuration("HELM_WATCH_RECONCILE_EVERY", 30*time.Second),
 		RepoCacheTTL:   getEnvDuration("HELM_WATCH_REPO_CACHE_TTL", 5*time.Minute),
+		ResolveWorkers: getEnvInt("HELM_WATCH_RESOLVE_WORKERS", 8),
 		KubeconfigPath: os.Getenv("HELM_WATCH_KUBECONFIG"),
 		LogLevel:       getEnvLogLevel("HELM_WATCH_LOG_LEVEL", slog.LevelInfo),
 	}
@@ -75,4 +77,16 @@ func getEnvLogLevel(key string, fallback slog.Level) slog.Level {
 		return fallback
 	}
 	return level
+}
+
+func getEnvInt(key string, fallback int) int {
+	v := os.Getenv(key)
+	if v == "" {
+		return fallback
+	}
+	n, err := strconv.Atoi(v)
+	if err != nil || n < 1 {
+		return fallback
+	}
+	return n
 }
