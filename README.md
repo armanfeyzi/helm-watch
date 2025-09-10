@@ -104,6 +104,7 @@ Useful environment variables:
 - `HELM_WATCH_SHUTDOWN_TIMEOUT` (default `10s`)
 - `HELM_WATCH_RECONCILE_EVERY` (default `30s`)
 - `HELM_WATCH_REPO_CACHE_TTL` (default `5m`)
+- `HELM_WATCH_RESOLVE_WORKERS` (default `8`)
 - `HELM_WATCH_KUBECONFIG` (optional fallback for local runs)
 - `HELM_WATCH_LOG_LEVEL` (default `info`)
 

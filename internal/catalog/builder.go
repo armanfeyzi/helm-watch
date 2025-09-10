@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -27,52 +28,83 @@ type Builder struct {
 	kubeClient    kubernetes.Interface
 	resolver      *resolver.RepositoryResolver
 	versionEngine *version.Engine
+	workers       int
 }
 
-func NewBuilder(dynamicClient dynamic.Interface, kubeClient kubernetes.Interface, repoResolver *resolver.RepositoryResolver, versionEngine *version.Engine) *Builder {
+func NewBuilder(dynamicClient dynamic.Interface, kubeClient kubernetes.Interface, repoResolver *resolver.RepositoryResolver, versionEngine *version.Engine, workers int) *Builder {
+	if workers < 1 {
+		workers = 1
+	}
 	return &Builder{
 		dynamicClient: dynamicClient,
 		kubeClient:    kubeClient,
 		resolver:      repoResolver,
 		versionEngine: versionEngine,
+		workers:       workers,
 	}
 }
 
 func (b *Builder) Build(ctx context.Context, workloads []model.WorkloadRecord) []model.ChartRecord {
-	out := make([]model.ChartRecord, 0, len(workloads))
-
-	for _, workload := range workloads {
-		record := model.ChartRecord{
-			WorkloadID:     workload.ID,
-			ChartName:      workload.AppName,
-			RepoURL:        "unknown",
-			CurrentVersion: "unknown",
-			LatestVersion:  "unknown",
-			Status:         model.VersionStatusUnknown,
-		}
-
-		switch workload.SourceType {
-		case model.SourceTypeArgoCDApplication:
-			record = b.populateFromArgoCD(ctx, workload, record)
-		case model.SourceTypeHelmReleaseSecret, model.SourceTypeHelmReleaseCM:
-			record = b.populateFromHelmObject(workload, record)
-		}
-
-		if canResolve(record) {
-			latest, err := b.resolver.ResolveLatest(ctx, record.RepoURL, record.ChartName)
-			if err == nil {
-				record.LatestVersion = latest
-			} else {
-				record.ResolutionError = err.Error()
-			}
-		}
-
-		result := b.versionEngine.Compare(record.CurrentVersion, record.LatestVersion)
-		record.Status = result.Status
-		out = append(out, record)
+	type job struct {
+		index    int
+		workload model.WorkloadRecord
 	}
 
-	return out
+	records := make([]model.ChartRecord, len(workloads))
+	jobs := make(chan job)
+
+	var wg sync.WaitGroup
+	for i := 0; i < b.workers; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for j := range jobs {
+				records[j.index] = b.buildSingle(ctx, j.workload)
+			}
+		}()
+	}
+
+	for i, workload := range workloads {
+		jobs <- job{index: i, workload: workload}
+	}
+	close(jobs)
+	wg.Wait()
+
+	return records
+}
+
+func (b *Builder) buildSingle(ctx context.Context, workload model.WorkloadRecord) model.ChartRecord {
+	record := model.ChartRecord{
+		WorkloadID:     workload.ID,
+		ChartName:      workload.AppName,
+		RepoURL:        "unknown",
+		CurrentVersion: "unknown",
+		LatestVersion:  "unknown",
+		Status:         model.VersionStatusUnknown,
+	}
+
+	switch workload.SourceType {
+	case model.SourceTypeArgoCDApplication:
+		record = b.populateFromArgoCD(ctx, workload, record)
+	case model.SourceTypeHelmReleaseSecret, model.SourceTypeHelmReleaseCM:
+		record = b.populateFromHelmObject(workload, record)
+	}
+
+	if canResolve(record) {
+		latest, err := b.resolver.ResolveLatest(ctx, record.RepoURL, record.ChartName)
+		if err == nil {
+			record.LatestVersion = latest
+		} else if IsUnsupportedResolution(err) {
+			// Unsupported/unknown is an expected state; keep status unknown without noisy error details.
+			record.LatestVersion = "unknown"
+		} else {
+			record.ResolutionError = err.Error()
+		}
+	}
+
+	result := b.versionEngine.Compare(record.CurrentVersion, record.LatestVersion)
+	record.Status = result.Status
+	return record
 }
 
 func (b *Builder) populateFromArgoCD(ctx context.Context, workload model.WorkloadRecord, record model.ChartRecord) model.ChartRecord {
