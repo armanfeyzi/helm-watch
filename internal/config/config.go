@@ -20,6 +20,7 @@ type Config struct {
 	WriteTimeout   time.Duration
 	ShutdownWindow time.Duration
 	ReconcileEvery time.Duration
+	RepoCacheTTL   time.Duration
 	KubeconfigPath string
 	LogLevel       slog.Level
 }
@@ -31,6 +32,7 @@ func FromEnv() Config {
 		WriteTimeout:   getEnvDuration("HELM_WATCH_HTTP_WRITE_TIMEOUT", defaultWriteTimeout),
 		ShutdownWindow: getEnvDuration("HELM_WATCH_SHUTDOWN_TIMEOUT", defaultShutdownWindow),
 		ReconcileEvery: getEnvDuration("HELM_WATCH_RECONCILE_EVERY", 30*time.Second),
+		RepoCacheTTL:   getEnvDuration("HELM_WATCH_REPO_CACHE_TTL", 5*time.Minute),
 		KubeconfigPath: os.Getenv("HELM_WATCH_KUBECONFIG"),
 		LogLevel:       getEnvLogLevel("HELM_WATCH_LOG_LEVEL", slog.LevelInfo),
 	}

@@ -1,0 +1,6 @@
+apiVersion: v2
+name: helm-watch
+description: Cluster-wide Helm chart version observability service.
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
