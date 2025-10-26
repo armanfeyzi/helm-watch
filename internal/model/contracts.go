@@ -42,6 +42,7 @@ type ChartRecord struct {
 	WorkloadID      string
 	ChartName       string
 	RepoURL         string
+	SourceKind      string
 	CurrentVersion  string
 	LatestVersion   string
 	Status          VersionStatus
