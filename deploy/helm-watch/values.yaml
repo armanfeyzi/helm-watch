@@ -25,3 +25,10 @@ config:
   logLevel: info
   reconcileEvery: 30s
   repoCacheTTL: 5m
+
+serviceMonitor:
+  enabled: false
+  namespace: monitoring
+  interval: 30s
+  scrapeTimeout: 10s
+  additionalLabels: {}
