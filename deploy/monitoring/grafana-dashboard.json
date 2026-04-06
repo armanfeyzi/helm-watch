@@ -33,6 +33,7 @@
         },
         "query": "label_values(helm_chart_info, namespace)",
         "includeAll": true,
+        "allValue": ".+",
         "multi": true,
         "refresh": 2,
         "current": {
@@ -141,7 +142,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (namespace) (helm_chart_outdated)",
+          "expr": "sum by (namespace) (helm_chart_outdated{namespace=~\"$namespace\"})",
           "refId": "A"
         }
       ],

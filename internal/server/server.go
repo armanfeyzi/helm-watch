@@ -60,7 +60,8 @@ func New(cfg config.Config) (*Server, error) {
 	discoveryManager := discovery.NewManager(composite, cfg.ReconcileEvery)
 	versionEngine := version.NewEngine()
 	repoResolver := resolver.NewRepositoryResolver(nil, cfg.RepoCacheTTL)
-	catalogBuilder := catalog.NewBuilder(clients.Dynamic, clients.Kubernetes, repoResolver, versionEngine, cfg.ResolveWorkers, cfg.RepoOverrides)
+	ociResolver := resolver.NewOCIResolver(nil, cfg.RepoCacheTTL)
+	catalogBuilder := catalog.NewBuilder(clients.Dynamic, clients.Kubernetes, repoResolver, ociResolver, versionEngine, cfg.ResolveWorkers, cfg.RepoOverrides)
 
 	return &Server{
 		cfg:              cfg,
