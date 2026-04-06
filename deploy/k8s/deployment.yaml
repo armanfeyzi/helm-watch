@@ -27,7 +27,7 @@ spec:
             - name: HELM_WATCH_HTTP_ADDR
               value: ":8080"
             - name: HELM_WATCH_RECONCILE_EVERY
-              value: "30s"
+              value: "1h"
             - name: HELM_WATCH_REPO_CACHE_TTL
               value: "5m"
           readinessProbe:
