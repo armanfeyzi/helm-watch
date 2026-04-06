@@ -65,6 +65,86 @@ func TestPickLatestSemverTagEmpty(t *testing.T) {
 	}
 }
 
+func TestResolveNextPageURL(t *testing.T) {
+	cur := "https://ghcr.io/v2/grafana/helm-charts/tempo-distributed/tags/list"
+
+	tests := []struct {
+		name string
+		link string
+		want string
+	}{
+		{
+			name: "absolute next",
+			link: `<https://ghcr.io/v2/grafana/helm-charts/tempo-distributed/tags/list?n=100&last=1.46.1>; rel="next"`,
+			want: "https://ghcr.io/v2/grafana/helm-charts/tempo-distributed/tags/list?n=100&last=1.46.1",
+		},
+		{
+			name: "relative next",
+			link: `</v2/grafana/helm-charts/tempo-distributed/tags/list?n=100&last=1.46.1>; rel="next"`,
+			want: "https://ghcr.io/v2/grafana/helm-charts/tempo-distributed/tags/list?n=100&last=1.46.1",
+		},
+		{
+			name: "no next rel",
+			link: `</v2/foo>; rel="prev"`,
+			want: "",
+		},
+		{
+			name: "empty",
+			link: "",
+			want: "",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := resolveNextPageURL(cur, tc.link)
+			if got != tc.want {
+				t.Fatalf("got %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestOCIResolverFollowsPagination(t *testing.T) {
+	var hits int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v2/grafana/helm-charts/tempo-distributed/tags/list" {
+			http.NotFound(w, r)
+			return
+		}
+		hits++
+		w.Header().Set("Content-Type", "application/json")
+
+		switch r.URL.Query().Get("last") {
+		case "":
+			// Page 1: lexically smaller tags.
+			w.Header().Set("Link", `</v2/grafana/helm-charts/tempo-distributed/tags/list?n=2&last=1.46.1>; rel="next"`)
+			_, _ = w.Write([]byte(`{"tags":["1.0.0","1.46.1"]}`))
+		case "1.46.1":
+			// Page 2: the actually-newest tags. No further Link header.
+			_, _ = w.Write([]byte(`{"tags":["1.50.0","1.62.0"]}`))
+		default:
+			http.Error(w, "unexpected last", http.StatusBadRequest)
+		}
+	}))
+	defer srv.Close()
+
+	host := strings.TrimPrefix(srv.URL, "http://")
+	r := NewOCIResolver(srv.Client(), time.Minute)
+	r.client = &http.Client{Timeout: 5 * time.Second, Transport: rewriteTransport{base: srv.Client().Transport, host: host}}
+
+	got, err := r.ResolveLatest(context.Background(), host+"/grafana/helm-charts", "tempo-distributed")
+	if err != nil {
+		t.Fatalf("ResolveLatest returned error: %v", err)
+	}
+	if got != "1.62.0" {
+		t.Fatalf("ResolveLatest = %q, want 1.62.0", got)
+	}
+	if hits != 2 {
+		t.Fatalf("expected 2 page fetches, got %d", hits)
+	}
+}
+
 func TestOCIResolverResolveLatestPublic(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/v2/charts/redis/tags/list" {

@@ -123,12 +123,13 @@ Endpoints:
 Helm Watch resolves upstream versions only when a chart's `repo` is something it can query.
 Common cases and how to fix them:
 
-| Source                                                | Resolves automatically?         | How to fix                                                                                                                                                                       |
-| ----------------------------------------------------- | ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `helm_repo` (`https://...github.io/...`)              | Yes (fetches `index.yaml`)      | -                                                                                                                                                                                |
-| `oci_registry` (`ghcr.io/...`, `registry-1.docker.io/...`) | Yes (Docker Registry v2 API) | -                                                                                                                                                                                |
-| `git` (Argo CD pointing at a Git repo, not a Helm repo) | No                              | Either change the Argo CD `Application` to use the chart's real Helm repo, or add an override (see below).                                                                       |
-| Helm release without a stored repo URL                | No                              | Add an override mapping the chart name to the upstream repo.                                                                                                                     |
+| Source                                                | Resolves automatically?                | How to fix                                                                                                                  |
+| ----------------------------------------------------- | -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `helm_repo` (`https://...github.io/...`)              | Yes (fetches `index.yaml`)             | -                                                                                                                           |
+| `oci_registry` (`ghcr.io/...`, `registry-1.docker.io/...`) | Yes (Docker Registry v2 API, paginated) | -                                                                                                                           |
+| `git` (Argo CD or Helm release pointing at a Git repo) | No                                     | Add an override mapping the chart name to the real Helm/OCI repo. Overrides take precedence over `git` sources.             |
+| Helm release without a stored repo URL                | No                                     | Add an override mapping the chart name to the upstream repo.                                                                |
+| Workloads with `current_version=main` or other non-semver | No                                     | These are GitOps-rendered manifests with no upstream chart version to compare against. Status will stay `unknown`.          |
 
 Override example:
 
