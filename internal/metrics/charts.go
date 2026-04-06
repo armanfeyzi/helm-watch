@@ -23,7 +23,7 @@ func NewChartMetrics(reg prometheus.Registerer) *ChartMetrics {
 				Name: "helm_chart_info",
 				Help: "Observed chart deployment and resolved version information.",
 			},
-			[]string{"app", "namespace", "chart", "repo", "source_kind", "current_version", "latest_version", "deployment_type"},
+			[]string{"app", "namespace", "chart", "repo", "source_kind", "current_version", "latest_version", "deployment_type", "status"},
 		),
 		outdatedGauge: prometheus.NewGaugeVec(
 			prometheus.GaugeOpts{
@@ -82,6 +82,7 @@ func (m *ChartMetrics) Publish(workloads []model.WorkloadRecord, chartRecords []
 			emptyToUnknown(rec.CurrentVersion),
 			emptyToUnknown(rec.LatestVersion),
 			string(workload.DeploymentType),
+			string(rec.Status),
 		).Set(1)
 
 		result := engine.Compare(rec.CurrentVersion, rec.LatestVersion)

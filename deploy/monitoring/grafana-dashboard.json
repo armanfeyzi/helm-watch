@@ -122,14 +122,84 @@
       },
       "targets": [
         {
-          "expr": "max by (app, namespace, chart, repo, source_kind, current_version, latest_version, deployment_type) (helm_chart_info{namespace=~\"$namespace\"})",
+          "expr": "max by (app, namespace, chart, repo, source_kind, current_version, latest_version, deployment_type, status) (helm_chart_info{namespace=~\"$namespace\"})",
           "format": "table",
           "instant": true,
           "refId": "A"
         }
       ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Value"
+            },
+            "properties": [
+              {
+                "id": "custom.hidden",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "status"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 130
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background"
+                }
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "up_to_date": {
+                        "color": "dark-green",
+                        "text": "up to date"
+                      },
+                      "outdated": {
+                        "color": "dark-red",
+                        "text": "outdated"
+                      },
+                      "unknown": {
+                        "color": "dark-yellow",
+                        "text": "unknown"
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
       "options": {
-        "showHeader": true
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false,
+          "reducers": []
+        }
       }
     },
     {
