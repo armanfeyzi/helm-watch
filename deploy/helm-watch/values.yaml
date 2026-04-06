@@ -23,7 +23,7 @@ resources:
 
 config:
   logLevel: info
-  reconcileEvery: 30s
+  reconcileEvery: 1h
   repoCacheTTL: 5m
 
 serviceMonitor:
