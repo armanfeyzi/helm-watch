@@ -78,7 +78,7 @@ Planned next:
 ## Example Metrics
 
 ```text
-helm_chart_info{app="alloy",namespace="monitoring",chart="alloy",repo="https://grafana.github.io/helm-charts",current_version="1.6.0",latest_version="1.8.2",deployment_type="argocd"} 1
+helm_chart_info{app="alloy",namespace="monitoring",chart="alloy",repo="https://grafana.github.io/helm-charts",current_version="1.6.0",latest_version="1.8.2",deployment_type="argocd",status="outdated"} 1
 helm_chart_outdated{app="alloy",namespace="monitoring",chart="alloy"} 1
 helm_chart_version_lag{app="alloy",namespace="monitoring",chart="alloy"} 202
 ```
