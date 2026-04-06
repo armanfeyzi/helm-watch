@@ -34,6 +34,15 @@ spec:
               value: {{ .Values.config.reconcileEvery | quote }}
             - name: HELM_WATCH_REPO_CACHE_TTL
               value: {{ .Values.config.repoCacheTTL | quote }}
+            {{- with .Values.config.repoOverrides }}
+            - name: HELM_WATCH_REPO_OVERRIDES
+              value: "{{- $first := true -}}
+                {{- range $chart, $repo := . -}}
+                  {{- if not $first }},{{ end -}}
+                  {{ $chart }}={{ $repo }}
+                  {{- $first = false -}}
+                {{- end -}}"
+            {{- end }}
           readinessProbe:
             httpGet:
               path: /healthz
