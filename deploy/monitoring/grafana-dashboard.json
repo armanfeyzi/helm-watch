@@ -226,6 +226,8 @@
       "targets": [
         {
           "expr": "sum by (namespace) (helm_chart_outdated{namespace=~\"$namespace\"})",
+          "legendFormat": "{{namespace}}",
+          "instant": true,
           "refId": "A"
         }
       ],
