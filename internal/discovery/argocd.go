@@ -39,7 +39,7 @@ func (d *ArgoCDApplicationDiscoverer) Discover(ctx context.Context) ([]model.Wor
 		}
 
 		name := app.GetName()
-		namespace := app.GetNamespace()
+		namespace := applicationDestinationNamespace(app)
 		out = append(out, model.WorkloadRecord{
 			ID:             workloadID(model.SourceTypeArgoCDApplication, namespace, name),
 			AppName:        name,
@@ -86,4 +86,13 @@ func sourceUsesHelm(source map[string]any) bool {
 		return true
 	}
 	return false
+}
+
+func applicationDestinationNamespace(app unstructured.Unstructured) string {
+	// Prefer target namespace where workloads are deployed.
+	if ns, ok, err := unstructured.NestedString(app.Object, "spec", "destination", "namespace"); err == nil && ok && ns != "" {
+		return ns
+	}
+	// Fallback to Application CR namespace if destination namespace is omitted.
+	return app.GetNamespace()
 }
