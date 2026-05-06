@@ -105,7 +105,11 @@ Useful environment variables:
 - `HELM_WATCH_RECONCILE_EVERY` (default `1h`)
 - `HELM_WATCH_REPO_CACHE_TTL` (default `5m`)
 - `HELM_WATCH_RESOLVE_WORKERS` (default `8`)
-- `HELM_WATCH_REPO_OVERRIDES` (optional chart->repo mapping, format: `chart=https://repo/index,chart2=https://repo2/index`)
+- `HELM_WATCH_REPO_OVERRIDES` (optional chart->repo mapping, format: `chart=https://repo/index,chart2=https://repo2/index`).
+  Use it when the discovered `repo` is missing or wrong (for example a chart deployed via `helm install` without a recorded URL,
+  or an Argo CD `Application` whose `spec.source.repoURL` points at a Git mirror instead of a Helm repo).
+  Example: `vault=https://helm.releases.hashicorp.com,argocd-image-updater=https://argoproj.github.io/argo-helm`.
+  OCI repos are supported too: `redis=oci://registry-1.docker.io/bitnamicharts`.
 - `HELM_WATCH_KUBECONFIG` (optional fallback for local runs)
 - `HELM_WATCH_LOG_LEVEL` (default `info`)
 
@@ -113,6 +117,36 @@ Endpoints:
 
 - `GET /healthz`
 - `GET /metrics`
+
+## When `latest_version` shows `unknown`
+
+Helm Watch resolves upstream versions only when a chart's `repo` is something it can query.
+Common cases and how to fix them:
+
+| Source                                                | Resolves automatically?         | How to fix                                                                                                                                                                       |
+| ----------------------------------------------------- | ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `helm_repo` (`https://...github.io/...`)              | Yes (fetches `index.yaml`)      | -                                                                                                                                                                                |
+| `oci_registry` (`ghcr.io/...`, `registry-1.docker.io/...`) | Yes (Docker Registry v2 API) | -                                                                                                                                                                                |
+| `git` (Argo CD pointing at a Git repo, not a Helm repo) | No                              | Either change the Argo CD `Application` to use the chart's real Helm repo, or add an override (see below).                                                                       |
+| Helm release without a stored repo URL                | No                              | Add an override mapping the chart name to the upstream repo.                                                                                                                     |
+
+Override example:
+
+```bash
+HELM_WATCH_REPO_OVERRIDES="vault=https://helm.releases.hashicorp.com,argocd-image-updater=https://argoproj.github.io/argo-helm,redis=oci://registry-1.docker.io/bitnamicharts"
+```
+
+In Helm:
+
+```yaml
+config:
+  repoOverrides:
+    vault: https://helm.releases.hashicorp.com
+    argocd-image-updater: https://argoproj.github.io/argo-helm
+    redis: oci://registry-1.docker.io/bitnamicharts
+```
+
+(See `deploy/helm-watch/values.yaml` for the full structure.)
 
 ## Deploy to Kubernetes
 

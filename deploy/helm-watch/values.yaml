@@ -25,10 +25,20 @@ config:
   logLevel: info
   reconcileEvery: 1h
   repoCacheTTL: 5m
+  # repoOverrides lets you fix charts that come back with `unknown` because the
+  # discovered source is a Git repo or has no recorded URL. Keys are chart names
+  # (case-insensitive). Values may be Helm repos (https://...) or OCI repos
+  # (oci://...).
+  repoOverrides: {}
+    # vault: https://helm.releases.hashicorp.com
+    # argocd-image-updater: https://argoproj.github.io/argo-helm
+    # redis: oci://registry-1.docker.io/bitnamicharts
 
 serviceMonitor:
   enabled: false
   namespace: monitoring
   interval: 30s
   scrapeTimeout: 10s
-  additionalLabels: {}
+  # Must match your Prometheus CR serviceMonitorSelector (kube-prometheus-stack: usually release: <prometheus-helm-release>).
+  additionalLabels:
+    release: prometheus
