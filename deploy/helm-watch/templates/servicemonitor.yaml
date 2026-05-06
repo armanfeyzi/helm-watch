@@ -1,0 +1,26 @@
+{{- if .Values.serviceMonitor.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "helm-watch.fullname" . }}
+  namespace: {{ .Values.serviceMonitor.namespace }}
+  labels:
+    app.kubernetes.io/name: {{ include "helm-watch.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+{{- with .Values.serviceMonitor.additionalLabels }}
+{{ toYaml . | indent 4 }}
+{{- end }}
+spec:
+  namespaceSelector:
+    matchNames:
+      - {{ .Release.Namespace }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "helm-watch.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: {{ .Values.serviceMonitor.interval | quote }}
+      scrapeTimeout: {{ .Values.serviceMonitor.scrapeTimeout | quote }}
+{{- end }}
