@@ -83,6 +83,7 @@ func (b *Builder) buildSingle(ctx context.Context, workload model.WorkloadRecord
 		WorkloadID:     workload.ID,
 		ChartName:      workload.AppName,
 		RepoURL:        "unknown",
+		SourceKind:     "unknown",
 		CurrentVersion: "unknown",
 		LatestVersion:  "unknown",
 		Status:         model.VersionStatusUnknown,
@@ -131,6 +132,7 @@ func (b *Builder) populateFromArgoCD(ctx context.Context, workload model.Workloa
 	}
 	if repo != "" {
 		record.RepoURL = repo
+		record.SourceKind = classifySourceKind(repo)
 	}
 	if targetRevision != "" {
 		record.CurrentVersion = targetRevision
@@ -167,6 +169,9 @@ func (b *Builder) populateFromHelmObject(ctx context.Context, workload model.Wor
 		if raw, ok := cm.Data["release"]; ok {
 			record = applyHelmReleasePayload(record, []byte(raw))
 		}
+	}
+	if record.RepoURL != "unknown" && record.SourceKind == "unknown" {
+		record.SourceKind = classifySourceKind(record.RepoURL)
 	}
 
 	return record
@@ -215,6 +220,9 @@ func parseArgoSource(source map[string]any) (chart, repo, targetRevision string,
 
 func canResolve(record model.ChartRecord) bool {
 	if strings.TrimSpace(record.ChartName) == "" || strings.TrimSpace(record.RepoURL) == "" || record.RepoURL == "unknown" {
+		return false
+	}
+	if record.SourceKind != "helm_repo" && record.SourceKind != "oci" {
 		return false
 	}
 	return true
@@ -267,8 +275,9 @@ func splitChartLabel(v string) (name, version string) {
 type helmRelease struct {
 	Chart struct {
 		Metadata struct {
-			Name    string `json:"name"`
-			Version string `json:"version"`
+			Name    string   `json:"name"`
+			Version string   `json:"version"`
+			Sources []string `json:"sources"`
 		} `json:"metadata"`
 	} `json:"chart"`
 }
@@ -296,6 +305,13 @@ func applyHelmReleasePayload(record model.ChartRecord, payload []byte) model.Cha
 	if rel.Chart.Metadata.Version != "" {
 		record.CurrentVersion = rel.Chart.Metadata.Version
 	}
+	if len(rel.Chart.Metadata.Sources) > 0 && record.RepoURL == "unknown" {
+		repo := strings.TrimSpace(rel.Chart.Metadata.Sources[0])
+		if repo != "" {
+			record.RepoURL = repo
+			record.SourceKind = classifySourceKind(repo)
+		}
+	}
 
 	return record
 }
@@ -319,4 +335,18 @@ func decodeHelmRelease(data []byte) ([]byte, error) {
 		return nil, err
 	}
 	return decoded, nil
+}
+
+func classifySourceKind(repo string) string {
+	r := strings.TrimSpace(strings.ToLower(repo))
+	switch {
+	case strings.HasPrefix(r, "oci://"):
+		return "oci"
+	case strings.HasPrefix(r, "http://"), strings.HasPrefix(r, "https://"):
+		return "helm_repo"
+	case strings.HasPrefix(r, "ssh://"), strings.Contains(r, ".git"):
+		return "git"
+	default:
+		return "unknown"
+	}
 }
