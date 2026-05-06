@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/url"
 	"strings"
 	"sync"
 
@@ -34,11 +35,15 @@ type Builder struct {
 	resolver      *resolver.RepositoryResolver
 	versionEngine *version.Engine
 	workers       int
+	repoOverrides map[string]string
 }
 
-func NewBuilder(dynamicClient dynamic.Interface, kubeClient kubernetes.Interface, repoResolver *resolver.RepositoryResolver, versionEngine *version.Engine, workers int) *Builder {
+func NewBuilder(dynamicClient dynamic.Interface, kubeClient kubernetes.Interface, repoResolver *resolver.RepositoryResolver, versionEngine *version.Engine, workers int, repoOverrides map[string]string) *Builder {
 	if workers < 1 {
 		workers = 1
+	}
+	if repoOverrides == nil {
+		repoOverrides = map[string]string{}
 	}
 	return &Builder{
 		dynamicClient: dynamicClient,
@@ -46,6 +51,7 @@ func NewBuilder(dynamicClient dynamic.Interface, kubeClient kubernetes.Interface
 		resolver:      repoResolver,
 		versionEngine: versionEngine,
 		workers:       workers,
+		repoOverrides: repoOverrides,
 	}
 }
 
@@ -95,6 +101,8 @@ func (b *Builder) buildSingle(ctx context.Context, workload model.WorkloadRecord
 	case model.SourceTypeHelmReleaseSecret, model.SourceTypeHelmReleaseCM:
 		record = b.populateFromHelmObject(ctx, workload, record)
 	}
+
+	record = b.applyRepoOverride(record)
 
 	if canResolve(record) {
 		latest, err := b.resolver.ResolveLatest(ctx, record.RepoURL, record.ChartName)
@@ -222,7 +230,7 @@ func canResolve(record model.ChartRecord) bool {
 	if strings.TrimSpace(record.ChartName) == "" || strings.TrimSpace(record.RepoURL) == "" || record.RepoURL == "unknown" {
 		return false
 	}
-	if record.SourceKind != "helm_repo" && record.SourceKind != "oci" {
+	if record.SourceKind != "helm_repo" {
 		return false
 	}
 	return true
@@ -338,15 +346,73 @@ func decodeHelmRelease(data []byte) ([]byte, error) {
 }
 
 func classifySourceKind(repo string) string {
-	r := strings.TrimSpace(strings.ToLower(repo))
-	switch {
-	case strings.HasPrefix(r, "oci://"):
-		return "oci"
-	case strings.HasPrefix(r, "http://"), strings.HasPrefix(r, "https://"):
-		return "helm_repo"
-	case strings.HasPrefix(r, "ssh://"), strings.Contains(r, ".git"):
-		return "git"
-	default:
+	r := strings.TrimSpace(repo)
+	lr := strings.ToLower(r)
+
+	if strings.HasPrefix(lr, "oci://") {
+		return "oci_registry"
+	}
+
+	// Registry-like source without explicit oci:// prefix.
+	if looksLikeRegistrySource(lr) {
+		return "oci_registry"
+	}
+
+	u, err := url.Parse(r)
+	if err != nil {
 		return "unknown"
 	}
+
+	host := strings.ToLower(u.Host)
+	path := strings.ToLower(u.Path)
+
+	if host == "" {
+		return "unknown"
+	}
+
+	if strings.Contains(host, "github.com") || strings.HasSuffix(path, ".git") {
+		return "git"
+	}
+
+	if strings.Contains(host, "github.io") || strings.Contains(path, "helm") || strings.Contains(path, "charts") {
+		return "helm_repo"
+	}
+
+	if strings.HasPrefix(lr, "http://") || strings.HasPrefix(lr, "https://") {
+		return "helm_repo"
+	}
+
+	return "unknown"
+}
+
+func looksLikeRegistrySource(repo string) bool {
+	switch {
+	case strings.Contains(repo, "ghcr.io/"),
+		strings.Contains(repo, "registry-1.docker.io/"),
+		strings.Contains(repo, "docker.io/"),
+		strings.Contains(repo, "quay.io/"),
+		strings.Contains(repo, "public.ecr.aws/"):
+		return true
+	default:
+		return false
+	}
+}
+
+func (b *Builder) applyRepoOverride(record model.ChartRecord) model.ChartRecord {
+	if record.RepoURL != "unknown" && strings.TrimSpace(record.RepoURL) != "" {
+		return record
+	}
+	if len(b.repoOverrides) == 0 {
+		return record
+	}
+
+	chartKey := strings.ToLower(strings.TrimSpace(record.ChartName))
+	if chartKey == "" {
+		return record
+	}
+	if repo, ok := b.repoOverrides[chartKey]; ok && strings.TrimSpace(repo) != "" {
+		record.RepoURL = repo
+		record.SourceKind = classifySourceKind(repo)
+	}
+	return record
 }

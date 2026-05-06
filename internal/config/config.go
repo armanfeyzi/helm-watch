@@ -4,6 +4,7 @@ import (
 	"log/slog"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -22,6 +23,7 @@ type Config struct {
 	ReconcileEvery time.Duration
 	RepoCacheTTL   time.Duration
 	ResolveWorkers int
+	RepoOverrides  map[string]string
 	KubeconfigPath string
 	LogLevel       slog.Level
 }
@@ -35,6 +37,7 @@ func FromEnv() Config {
 		ReconcileEvery: getEnvDuration("HELM_WATCH_RECONCILE_EVERY", 30*time.Second),
 		RepoCacheTTL:   getEnvDuration("HELM_WATCH_REPO_CACHE_TTL", 5*time.Minute),
 		ResolveWorkers: getEnvInt("HELM_WATCH_RESOLVE_WORKERS", 8),
+		RepoOverrides:  getEnvRepoOverrides("HELM_WATCH_REPO_OVERRIDES"),
 		KubeconfigPath: os.Getenv("HELM_WATCH_KUBECONFIG"),
 		LogLevel:       getEnvLogLevel("HELM_WATCH_LOG_LEVEL", slog.LevelInfo),
 	}
@@ -89,4 +92,31 @@ func getEnvInt(key string, fallback int) int {
 		return fallback
 	}
 	return n
+}
+
+func getEnvRepoOverrides(key string) map[string]string {
+	raw := strings.TrimSpace(os.Getenv(key))
+	if raw == "" {
+		return map[string]string{}
+	}
+
+	out := map[string]string{}
+	for _, pair := range strings.Split(raw, ",") {
+		pair = strings.TrimSpace(pair)
+		if pair == "" {
+			continue
+		}
+		parts := strings.SplitN(pair, "=", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		chart := strings.TrimSpace(parts[0])
+		repo := strings.TrimSpace(parts[1])
+		if chart == "" || repo == "" {
+			continue
+		}
+		out[strings.ToLower(chart)] = repo
+	}
+
+	return out
 }
