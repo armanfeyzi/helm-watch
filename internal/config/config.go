@@ -34,7 +34,7 @@ func FromEnv() Config {
 		ReadTimeout:    getEnvDuration("HELM_WATCH_HTTP_READ_TIMEOUT", defaultReadTimeout),
 		WriteTimeout:   getEnvDuration("HELM_WATCH_HTTP_WRITE_TIMEOUT", defaultWriteTimeout),
 		ShutdownWindow: getEnvDuration("HELM_WATCH_SHUTDOWN_TIMEOUT", defaultShutdownWindow),
-		ReconcileEvery: getEnvDuration("HELM_WATCH_RECONCILE_EVERY", 30*time.Second),
+		ReconcileEvery: getEnvDuration("HELM_WATCH_RECONCILE_EVERY", 1*time.Hour),
 		RepoCacheTTL:   getEnvDuration("HELM_WATCH_REPO_CACHE_TTL", 5*time.Minute),
 		ResolveWorkers: getEnvInt("HELM_WATCH_RESOLVE_WORKERS", 8),
 		RepoOverrides:  getEnvRepoOverrides("HELM_WATCH_REPO_OVERRIDES"),
