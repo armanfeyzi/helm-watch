@@ -1,9 +1,14 @@
 package catalog
 
 import (
+	"bytes"
+	"compress/gzip"
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"strings"
 	"sync"
 
@@ -87,7 +92,7 @@ func (b *Builder) buildSingle(ctx context.Context, workload model.WorkloadRecord
 	case model.SourceTypeArgoCDApplication:
 		record = b.populateFromArgoCD(ctx, workload, record)
 	case model.SourceTypeHelmReleaseSecret, model.SourceTypeHelmReleaseCM:
-		record = b.populateFromHelmObject(workload, record)
+		record = b.populateFromHelmObject(ctx, workload, record)
 	}
 
 	if canResolve(record) {
@@ -133,10 +138,37 @@ func (b *Builder) populateFromArgoCD(ctx context.Context, workload model.Workloa
 	return record
 }
 
-func (b *Builder) populateFromHelmObject(workload model.WorkloadRecord, record model.ChartRecord) model.ChartRecord {
-	// Helm release objects do not consistently expose chart repo/version in labels.
-	// We retain best-effort identification and mark unresolved fields as unknown.
-	record.ChartName = workload.AppName
+func (b *Builder) populateFromHelmObject(ctx context.Context, workload model.WorkloadRecord, record model.ChartRecord) model.ChartRecord {
+	objectName, ok := sourceObjectName(workload.ID)
+	if !ok {
+		record.ResolutionError = "invalid workload id format"
+		return record
+	}
+
+	switch workload.SourceType {
+	case model.SourceTypeHelmReleaseSecret:
+		secret, err := b.kubeClient.CoreV1().Secrets(workload.Namespace).Get(ctx, objectName, metav1.GetOptions{})
+		if err != nil {
+			record.ResolutionError = fmt.Sprintf("get helm secret: %v", err)
+			return record
+		}
+		record = applyHelmLabels(record, secret.Labels)
+		if payload, ok := secret.Data["release"]; ok {
+			record = applyHelmReleasePayload(record, payload)
+		}
+
+	case model.SourceTypeHelmReleaseCM:
+		cm, err := b.kubeClient.CoreV1().ConfigMaps(workload.Namespace).Get(ctx, objectName, metav1.GetOptions{})
+		if err != nil {
+			record.ResolutionError = fmt.Sprintf("get helm configmap: %v", err)
+			return record
+		}
+		record = applyHelmLabels(record, cm.Labels)
+		if raw, ok := cm.Data["release"]; ok {
+			record = applyHelmReleasePayload(record, []byte(raw))
+		}
+	}
+
 	return record
 }
 
@@ -163,13 +195,22 @@ func extractArgoChartSource(spec map[string]any) (chart, repo, targetRevision st
 }
 
 func parseArgoSource(source map[string]any) (chart, repo, targetRevision string, ok bool) {
-	chart, _ = source["chart"].(string)
-	if strings.TrimSpace(chart) == "" {
-		return "", "", "", false
-	}
 	repo, _ = source["repoURL"].(string)
 	targetRevision, _ = source["targetRevision"].(string)
-	return chart, repo, targetRevision, true
+
+	chart, _ = source["chart"].(string)
+	if strings.TrimSpace(chart) != "" {
+		return chart, repo, targetRevision, true
+	}
+
+	// Some Argo CD entries use a helm block without explicit chart.
+	// In those cases we still return repo and targetRevision and let caller
+	// fall back chart to app name.
+	if _, hasHelm := source["helm"].(map[string]any); hasHelm && strings.TrimSpace(repo) != "" {
+		return "", repo, targetRevision, true
+	}
+
+	return "", "", "", false
 }
 
 func canResolve(record model.ChartRecord) bool {
@@ -181,4 +222,101 @@ func canResolve(record model.ChartRecord) bool {
 
 func IsUnsupportedResolution(err error) bool {
 	return errors.Is(err, resolver.ErrUnsupportedRepo) || errors.Is(err, resolver.ErrChartNotFound)
+}
+
+func sourceObjectName(workloadID string) (string, bool) {
+	parts := strings.SplitN(workloadID, ":", 3)
+	if len(parts) != 3 || strings.TrimSpace(parts[2]) == "" {
+		return "", false
+	}
+	return parts[2], true
+}
+
+func applyHelmLabels(record model.ChartRecord, labels map[string]string) model.ChartRecord {
+	if labels == nil {
+		return record
+	}
+
+	if chartLabel := labels["helm.sh/chart"]; chartLabel != "" {
+		chartName, chartVersion := splitChartLabel(chartLabel)
+		if chartName != "" {
+			record.ChartName = chartName
+		}
+		if chartVersion != "" && record.CurrentVersion == "unknown" {
+			record.CurrentVersion = chartVersion
+		}
+	}
+
+	return record
+}
+
+func splitChartLabel(v string) (name, version string) {
+	// helm.sh/chart usually looks like "<name>-<version>"
+	// version starts with a digit in standard chart versions.
+	for i := len(v) - 1; i >= 0; i-- {
+		if v[i] != '-' {
+			continue
+		}
+		if i+1 < len(v) && v[i+1] >= '0' && v[i+1] <= '9' {
+			return v[:i], v[i+1:]
+		}
+	}
+	return v, ""
+}
+
+type helmRelease struct {
+	Chart struct {
+		Metadata struct {
+			Name    string `json:"name"`
+			Version string `json:"version"`
+		} `json:"metadata"`
+	} `json:"chart"`
+}
+
+func applyHelmReleasePayload(record model.ChartRecord, payload []byte) model.ChartRecord {
+	decoded, err := decodeHelmRelease(payload)
+	if err != nil {
+		if record.ResolutionError == "" {
+			record.ResolutionError = fmt.Sprintf("decode release payload: %v", err)
+		}
+		return record
+	}
+
+	var rel helmRelease
+	if err := json.Unmarshal(decoded, &rel); err != nil {
+		if record.ResolutionError == "" {
+			record.ResolutionError = fmt.Sprintf("unmarshal release payload: %v", err)
+		}
+		return record
+	}
+
+	if rel.Chart.Metadata.Name != "" {
+		record.ChartName = rel.Chart.Metadata.Name
+	}
+	if rel.Chart.Metadata.Version != "" {
+		record.CurrentVersion = rel.Chart.Metadata.Version
+	}
+
+	return record
+}
+
+func decodeHelmRelease(data []byte) ([]byte, error) {
+	// Kubernetes API already decodes Secret.data once.
+	// Helm payload itself is typically base64-encoded gzip-compressed JSON.
+	inner, err := base64.StdEncoding.DecodeString(string(data))
+	if err != nil {
+		return nil, err
+	}
+
+	gr, err := gzip.NewReader(bytes.NewReader(inner))
+	if err != nil {
+		return nil, err
+	}
+	defer gr.Close()
+
+	decoded, err := io.ReadAll(gr)
+	if err != nil {
+		return nil, err
+	}
+	return decoded, nil
 }
