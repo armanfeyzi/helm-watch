@@ -149,6 +149,8 @@ Tag-based release workflow at `.github/workflows/release.yml`:
 - Dashboard and alert templates
 - Hardening for edge cases (multi-source apps, unsupported sources, partial failures)
 
+Release verification notes are tracked in `docs/release-verification-v0.1.2.md`.
+
 ## License
 
 Licensed under Apache License 2.0. See `LICENSE` for full terms.
