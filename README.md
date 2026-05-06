@@ -119,6 +119,7 @@ Two deployment methods are included:
 
 - Raw manifests: `deploy/k8s/`
 - Helm chart: `deploy/helm-watch/`
+- Monitoring bootstrap: `deploy/monitoring/`
 
 See `deploy/README.md` for commands.
 
