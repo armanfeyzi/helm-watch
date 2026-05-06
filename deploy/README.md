@@ -4,6 +4,7 @@ This directory contains two deployment options for Helm Watch:
 
 - `k8s/` - raw Kubernetes manifests
 - `helm-watch/` - Helm chart
+- `monitoring/` - ServiceMonitor, PrometheusRule, and Grafana dashboard
 
 ## Option 1: Raw Kubernetes manifests
 
@@ -27,3 +28,4 @@ helm upgrade --install helm-watch ./deploy/helm-watch --namespace helm-watch --c
 - Service listens on port `8080` and exposes:
   - `/healthz`
   - `/metrics`
+- For monitoring assets, see `deploy/monitoring/README.md`.

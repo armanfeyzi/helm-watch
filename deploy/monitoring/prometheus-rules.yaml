@@ -1,0 +1,40 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: helm-watch-alerts
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/name: helm-watch
+spec:
+  groups:
+    - name: helm-watch.rules
+      rules:
+        - alert: HelmWatchChartOutdated
+          expr: helm_chart_outdated{namespace=~"prod|production"} > 0
+          for: 15m
+          labels:
+            severity: warning
+            component: helm-watch
+          annotations:
+            summary: "Helm chart outdated in production namespace"
+            description: "Chart {{ $labels.chart }} for app {{ $labels.app }} in namespace {{ $labels.namespace }} is outdated."
+
+        - alert: HelmWatchReconcileErrorsHigh
+          expr: increase(helm_watch_reconcile_errors_total[10m]) > 3
+          for: 5m
+          labels:
+            severity: critical
+            component: helm-watch
+          annotations:
+            summary: "Helm Watch reconcile errors are increasing"
+            description: "More than 3 reconcile errors in the last 10 minutes."
+
+        - alert: HelmWatchMetricsMissing
+          expr: absent(helm_chart_info)
+          for: 10m
+          labels:
+            severity: warning
+            component: helm-watch
+          annotations:
+            summary: "Helm Watch metrics missing"
+            description: "No helm_chart_info metrics observed for 10 minutes."

@@ -1,0 +1,19 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: helm-watch
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/name: helm-watch
+spec:
+  namespaceSelector:
+    matchNames:
+      - helm-watch
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: helm-watch
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 30s
+      scrapeTimeout: 10s
