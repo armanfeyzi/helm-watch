@@ -412,8 +412,22 @@ func looksLikeRegistrySource(repo string) bool {
 	}
 }
 
+// applyRepoOverride lets users repair charts whose discovered repo URL is
+// missing or unresolvable. It applies in three cases, in increasing order of
+// "the discovered value was useless":
+//
+//  1. RepoURL is empty or literal "unknown" (nothing was discovered).
+//  2. SourceKind is "git" — Argo CD or a Helm release pointed at a Git URL
+//     that doesn't host a Helm index (for example a project's source repo or a
+//     GitOps monorepo). We can never resolve a chart version from those.
+//
+// In every other case (helm_repo, oci_registry) the discovered repo is
+// authoritative and we leave it alone.
 func (b *Builder) applyRepoOverride(record model.ChartRecord) model.ChartRecord {
-	if record.RepoURL != "unknown" && strings.TrimSpace(record.RepoURL) != "" {
+	canOverride := strings.TrimSpace(record.RepoURL) == "" ||
+		record.RepoURL == "unknown" ||
+		record.SourceKind == "git"
+	if !canOverride {
 		return record
 	}
 	if len(b.repoOverrides) == 0 {

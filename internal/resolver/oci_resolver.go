@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	neturl "net/url"
 	"strings"
 	"sync"
 	"time"
@@ -101,62 +102,120 @@ func (r *OCIResolver) storeTags(key string, tags []string) {
 	r.cache[key] = ociCacheEntry{tags: tags, expiresAt: time.Now().UTC().Add(r.ttl)}
 }
 
+// maxOCIPages caps pagination to keep memory and latency bounded. Even
+// long-lived charts rarely exceed a few thousand tags, and we only need the
+// highest semver across the full set.
+const maxOCIPages = 50
+
 func (r *OCIResolver) fetchTags(ctx context.Context, host, repository string) ([]string, error) {
-	endpoint := fmt.Sprintf("https://%s/v2/%s/tags/list", host, repository)
+	startURL := fmt.Sprintf("https://%s/v2/%s/tags/list", host, repository)
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
-	if err != nil {
-		return nil, fmt.Errorf("build tags request: %w", err)
-	}
+	// Token is negotiated lazily on the first 401 and reused for subsequent
+	// pages so we don't re-auth per page.
+	var token string
+	all := make([]string, 0, 256)
+	nextURL := startURL
 
-	resp, err := r.client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("fetch oci tags: %w", err)
-	}
+	for page := 0; page < maxOCIPages && nextURL != ""; page++ {
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, nextURL, nil)
+		if err != nil {
+			return nil, fmt.Errorf("build tags request: %w", err)
+		}
+		if token != "" {
+			req.Header.Set("Authorization", "Bearer "+token)
+		}
 
-	if resp.StatusCode == http.StatusUnauthorized {
-		token, tokenErr := r.negotiateAnonymousToken(ctx, resp, host, repository)
+		resp, err := r.client.Do(req)
+		if err != nil {
+			return nil, fmt.Errorf("fetch oci tags: %w", err)
+		}
+
+		if resp.StatusCode == http.StatusUnauthorized && token == "" {
+			t, tokenErr := r.negotiateAnonymousToken(ctx, resp, host, repository)
+			_ = resp.Body.Close()
+			if tokenErr != nil {
+				return nil, tokenErr
+			}
+			token = t
+			// Retry the same page with the token.
+			continue
+		}
+
+		if resp.StatusCode == http.StatusNotFound {
+			_ = resp.Body.Close()
+			if len(all) > 0 {
+				break
+			}
+			return nil, ErrChartNotFound
+		}
+		if resp.StatusCode != http.StatusOK {
+			_ = resp.Body.Close()
+			return nil, fmt.Errorf("oci tags status: %s", resp.Status)
+		}
+
+		body, err := io.ReadAll(resp.Body)
 		_ = resp.Body.Close()
-		if tokenErr != nil {
-			return nil, tokenErr
+		if err != nil {
+			return nil, fmt.Errorf("read oci tags body: %w", err)
 		}
 
-		req, err = http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
-		if err != nil {
-			return nil, fmt.Errorf("rebuild tags request: %w", err)
+		var payload struct {
+			Tags []string `json:"tags"`
 		}
-		req.Header.Set("Authorization", "Bearer "+token)
+		if err := json.Unmarshal(body, &payload); err != nil {
+			return nil, fmt.Errorf("decode oci tags: %w", err)
+		}
+		all = append(all, payload.Tags...)
 
-		resp, err = r.client.Do(req)
-		if err != nil {
-			return nil, fmt.Errorf("fetch oci tags with token: %w", err)
-		}
+		nextURL = resolveNextPageURL(startURL, resp.Header.Get("Link"))
 	}
-	defer resp.Body.Close()
 
-	if resp.StatusCode == http.StatusNotFound {
+	if len(all) == 0 {
 		return nil, ErrChartNotFound
 	}
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("oci tags status: %s", resp.Status)
+	return all, nil
+}
+
+// resolveNextPageURL extracts the `rel="next"` target from a Link header and
+// resolves it against the original request URL. Registries return either an
+// absolute URL or a path (`/v2/.../tags/list?n=100&last=...`).
+func resolveNextPageURL(currentURL, linkHeader string) string {
+	if linkHeader == "" {
+		return ""
 	}
 
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("read oci tags body: %w", err)
-	}
+	for _, part := range strings.Split(linkHeader, ",") {
+		segs := strings.Split(strings.TrimSpace(part), ";")
+		if len(segs) < 2 {
+			continue
+		}
+		raw := strings.TrimSpace(segs[0])
+		raw = strings.TrimPrefix(raw, "<")
+		raw = strings.TrimSuffix(raw, ">")
 
-	var payload struct {
-		Tags []string `json:"tags"`
-	}
-	if err := json.Unmarshal(body, &payload); err != nil {
-		return nil, fmt.Errorf("decode oci tags: %w", err)
-	}
-	if len(payload.Tags) == 0 {
-		return nil, ErrChartNotFound
-	}
+		isNext := false
+		for _, attr := range segs[1:] {
+			if strings.Contains(strings.ToLower(attr), `rel="next"`) ||
+				strings.Contains(strings.ToLower(attr), "rel=next") {
+				isNext = true
+				break
+			}
+		}
+		if !isNext || raw == "" {
+			continue
+		}
 
-	return payload.Tags, nil
+		base, err := neturl.Parse(currentURL)
+		if err != nil {
+			return raw
+		}
+		ref, err := neturl.Parse(raw)
+		if err != nil {
+			return raw
+		}
+		return base.ResolveReference(ref).String()
+	}
+	return ""
 }
 
 // negotiateAnonymousToken parses the WWW-Authenticate header from a 401 and
