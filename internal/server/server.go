@@ -10,16 +10,19 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"github.com/afeyzirealyticsio/helm-watch/internal/config"
+	"github.com/afeyzirealyticsio/helm-watch/internal/discovery"
+	"github.com/afeyzirealyticsio/helm-watch/internal/kube"
 	"github.com/afeyzirealyticsio/helm-watch/internal/metrics"
 )
 
 type Server struct {
-	cfg      config.Config
-	registry *metrics.Registry
-	httpSrv  *http.Server
+	cfg              config.Config
+	registry         *metrics.Registry
+	httpSrv          *http.Server
+	discoveryManager *discovery.Manager
 }
 
-func New(cfg config.Config) *Server {
+func New(cfg config.Config) (*Server, error) {
 	reg := metrics.NewRegistry()
 
 	mux := http.NewServeMux()
@@ -37,15 +40,29 @@ func New(cfg config.Config) *Server {
 		WriteTimeout: cfg.WriteTimeout,
 	}
 
-	return &Server{
-		cfg:      cfg,
-		registry: reg,
-		httpSrv:  httpSrv,
+	clients, err := kube.NewClients(cfg.KubeconfigPath)
+	if err != nil {
+		return nil, fmt.Errorf("initialize kubernetes clients: %w", err)
 	}
+
+	composite := discovery.NewComposite(
+		discovery.NewArgoCDApplicationDiscoverer(clients.Dynamic),
+		discovery.NewHelmReleaseDiscoverer(clients.Kubernetes),
+	)
+	discoveryManager := discovery.NewManager(composite, cfg.ReconcileEvery)
+
+	return &Server{
+		cfg:              cfg,
+		registry:         reg,
+		httpSrv:          httpSrv,
+		discoveryManager: discoveryManager,
+	}, nil
 }
 
 func (s *Server) Run(ctx context.Context) error {
 	errCh := make(chan error, 1)
+
+	go s.discoveryManager.Run(ctx)
 
 	go func() {
 		slog.Info("starting HTTP server", "addr", s.cfg.HTTPAddr)
