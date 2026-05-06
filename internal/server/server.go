@@ -60,7 +60,7 @@ func New(cfg config.Config) (*Server, error) {
 	discoveryManager := discovery.NewManager(composite, cfg.ReconcileEvery)
 	versionEngine := version.NewEngine()
 	repoResolver := resolver.NewRepositoryResolver(nil, cfg.RepoCacheTTL)
-	catalogBuilder := catalog.NewBuilder(clients.Dynamic, clients.Kubernetes, repoResolver, versionEngine)
+	catalogBuilder := catalog.NewBuilder(clients.Dynamic, clients.Kubernetes, repoResolver, versionEngine, cfg.ResolveWorkers)
 
 	return &Server{
 		cfg:              cfg,
