@@ -22,6 +22,15 @@ kubectl apply -f deploy/k8s/service.yaml
 helm upgrade --install helm-watch ./deploy/helm-watch --namespace helm-watch --create-namespace
 ```
 
+Enable ServiceMonitor from the chart:
+
+```bash
+helm upgrade --install helm-watch ./deploy/helm-watch \
+  --namespace helm-watch --create-namespace \
+  --set serviceMonitor.enabled=true \
+  --set serviceMonitor.namespace=monitoring
+```
+
 ## Notes
 
 - Update image tag/repository for your environment before deploy.

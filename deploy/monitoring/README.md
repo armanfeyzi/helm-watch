@@ -15,12 +15,21 @@ kubectl apply -f deploy/monitoring/servicemonitor.yaml
 kubectl apply -f deploy/monitoring/prometheus-rules.yaml
 ```
 
+If you deploy with Helm chart, you can create ServiceMonitor from chart values instead:
+
+```bash
+helm upgrade --install helm-watch ./deploy/helm-watch \
+  --namespace helm-watch --create-namespace \
+  --set serviceMonitor.enabled=true \
+  --set serviceMonitor.namespace=monitoring
+```
+
 ## Import Grafana dashboard
 
 1. Open Grafana
 2. Go to Dashboards -> Import
 3. Upload `deploy/monitoring/grafana-dashboard.json`
-4. Select your Prometheus datasource (default in file: `uid=prometheus`)
+4. Select your Prometheus datasource when prompted (`DS_PROMETHEUS`)
 
 ## Notes
 
