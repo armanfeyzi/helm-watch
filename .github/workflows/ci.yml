@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Go mod tidy check
+        run: |
+          go mod tidy
+          git diff --exit-code go.mod go.sum
+
+      - name: Run tests
+        run: go test ./...
+
+      - name: Build Linux amd64 binary
+        run: |
+          mkdir -p dist
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o dist/helm-watch-linux-amd64 ./cmd/helm-watch
+
+      - name: Build Linux arm64 binary
+        run: |
+          CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o dist/helm-watch-linux-arm64 ./cmd/helm-watch
+
+      - name: Upload binary artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: helm-watch-binaries
+          path: dist/*
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.15.4
+
+      - name: Lint Helm chart
+        run: helm lint ./deploy/helm-watch
+
+      - name: Build Docker image
+        run: docker build -t helm-watch:ci .
+
+      - name: Export Docker image artifact
+        run: |
+          mkdir -p dist
+          docker save helm-watch:ci -o dist/helm-watch-image.tar
+
+      - name: Upload image artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: helm-watch-image-tar
+          path: dist/helm-watch-image.tar

@@ -1,0 +1,152 @@
+package catalog
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"strings"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/kubernetes"
+
+	"github.com/afeyzirealyticsio/helm-watch/internal/model"
+	"github.com/afeyzirealyticsio/helm-watch/internal/resolver"
+	"github.com/afeyzirealyticsio/helm-watch/internal/version"
+)
+
+var argoCDApplicationGVR = schema.GroupVersionResource{
+	Group:    "argoproj.io",
+	Version:  "v1alpha1",
+	Resource: "applications",
+}
+
+type Builder struct {
+	dynamicClient dynamic.Interface
+	kubeClient    kubernetes.Interface
+	resolver      *resolver.RepositoryResolver
+	versionEngine *version.Engine
+}
+
+func NewBuilder(dynamicClient dynamic.Interface, kubeClient kubernetes.Interface, repoResolver *resolver.RepositoryResolver, versionEngine *version.Engine) *Builder {
+	return &Builder{
+		dynamicClient: dynamicClient,
+		kubeClient:    kubeClient,
+		resolver:      repoResolver,
+		versionEngine: versionEngine,
+	}
+}
+
+func (b *Builder) Build(ctx context.Context, workloads []model.WorkloadRecord) []model.ChartRecord {
+	out := make([]model.ChartRecord, 0, len(workloads))
+
+	for _, workload := range workloads {
+		record := model.ChartRecord{
+			WorkloadID:     workload.ID,
+			ChartName:      workload.AppName,
+			RepoURL:        "unknown",
+			CurrentVersion: "unknown",
+			LatestVersion:  "unknown",
+			Status:         model.VersionStatusUnknown,
+		}
+
+		switch workload.SourceType {
+		case model.SourceTypeArgoCDApplication:
+			record = b.populateFromArgoCD(ctx, workload, record)
+		case model.SourceTypeHelmReleaseSecret, model.SourceTypeHelmReleaseCM:
+			record = b.populateFromHelmObject(workload, record)
+		}
+
+		if canResolve(record) {
+			latest, err := b.resolver.ResolveLatest(ctx, record.RepoURL, record.ChartName)
+			if err == nil {
+				record.LatestVersion = latest
+			} else {
+				record.ResolutionError = err.Error()
+			}
+		}
+
+		result := b.versionEngine.Compare(record.CurrentVersion, record.LatestVersion)
+		record.Status = result.Status
+		out = append(out, record)
+	}
+
+	return out
+}
+
+func (b *Builder) populateFromArgoCD(ctx context.Context, workload model.WorkloadRecord, record model.ChartRecord) model.ChartRecord {
+	app, err := b.dynamicClient.Resource(argoCDApplicationGVR).Namespace(workload.Namespace).Get(ctx, workload.AppName, metav1.GetOptions{})
+	if err != nil {
+		record.ResolutionError = fmt.Sprintf("get argocd application: %v", err)
+		return record
+	}
+
+	spec, ok := app.Object["spec"].(map[string]any)
+	if !ok {
+		record.ResolutionError = "argocd app missing spec"
+		return record
+	}
+
+	chart, repo, targetRevision := extractArgoChartSource(spec)
+	if chart != "" {
+		record.ChartName = chart
+	}
+	if repo != "" {
+		record.RepoURL = repo
+	}
+	if targetRevision != "" {
+		record.CurrentVersion = targetRevision
+	}
+	return record
+}
+
+func (b *Builder) populateFromHelmObject(workload model.WorkloadRecord, record model.ChartRecord) model.ChartRecord {
+	// Helm release objects do not consistently expose chart repo/version in labels.
+	// We retain best-effort identification and mark unresolved fields as unknown.
+	record.ChartName = workload.AppName
+	return record
+}
+
+func extractArgoChartSource(spec map[string]any) (chart, repo, targetRevision string) {
+	if source, ok := spec["source"].(map[string]any); ok {
+		if c, r, t, ok := parseArgoSource(source); ok {
+			return c, r, t
+		}
+	}
+
+	if sources, ok := spec["sources"].([]any); ok {
+		for _, raw := range sources {
+			sourceMap, ok := raw.(map[string]any)
+			if !ok {
+				continue
+			}
+			if c, r, t, ok := parseArgoSource(sourceMap); ok {
+				return c, r, t
+			}
+		}
+	}
+
+	return "", "", ""
+}
+
+func parseArgoSource(source map[string]any) (chart, repo, targetRevision string, ok bool) {
+	chart, _ = source["chart"].(string)
+	if strings.TrimSpace(chart) == "" {
+		return "", "", "", false
+	}
+	repo, _ = source["repoURL"].(string)
+	targetRevision, _ = source["targetRevision"].(string)
+	return chart, repo, targetRevision, true
+}
+
+func canResolve(record model.ChartRecord) bool {
+	if strings.TrimSpace(record.ChartName) == "" || strings.TrimSpace(record.RepoURL) == "" || record.RepoURL == "unknown" {
+		return false
+	}
+	return true
+}
+
+func IsUnsupportedResolution(err error) bool {
+	return errors.Is(err, resolver.ErrUnsupportedRepo) || errors.Is(err, resolver.ErrChartNotFound)
+}
