@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: helm-watch
+  namespace: helm-watch
+  labels:
+    app.kubernetes.io/name: helm-watch
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: helm-watch
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: helm-watch
+    spec:
+      serviceAccountName: helm-watch
+      containers:
+        - name: helm-watch
+          image: ghcr.io/armanfeyzi/helm-watch:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: HELM_WATCH_HTTP_ADDR
+              value: ":8080"
+            - name: HELM_WATCH_RECONCILE_EVERY
+              value: "30s"
+            - name: HELM_WATCH_REPO_CACHE_TTL
+              value: "5m"
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
