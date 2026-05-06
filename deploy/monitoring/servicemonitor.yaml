@@ -1,3 +1,10 @@
+# ServiceMonitor for Prometheus Operator.
+#
+# Prometheus only scrapes ServiceMonitors whose labels match the Prometheus CR
+# .spec.serviceMonitorSelector. Discover yours with:
+#   kubectl get prometheus -A -o jsonpath='{range .items[*]}{.metadata.namespace}{"\t"}{.metadata.name}{"\t"}{.spec.serviceMonitorSelector}{"\n"}{end}'
+#
+# This cluster uses: matchLabels release: prometheus
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
@@ -5,6 +12,7 @@ metadata:
   namespace: monitoring
   labels:
     app.kubernetes.io/name: helm-watch
+    release: prometheus
 spec:
   namespaceSelector:
     matchNames:

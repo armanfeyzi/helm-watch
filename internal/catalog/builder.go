@@ -33,12 +33,13 @@ type Builder struct {
 	dynamicClient dynamic.Interface
 	kubeClient    kubernetes.Interface
 	resolver      *resolver.RepositoryResolver
+	ociResolver   *resolver.OCIResolver
 	versionEngine *version.Engine
 	workers       int
 	repoOverrides map[string]string
 }
 
-func NewBuilder(dynamicClient dynamic.Interface, kubeClient kubernetes.Interface, repoResolver *resolver.RepositoryResolver, versionEngine *version.Engine, workers int, repoOverrides map[string]string) *Builder {
+func NewBuilder(dynamicClient dynamic.Interface, kubeClient kubernetes.Interface, repoResolver *resolver.RepositoryResolver, ociResolver *resolver.OCIResolver, versionEngine *version.Engine, workers int, repoOverrides map[string]string) *Builder {
 	if workers < 1 {
 		workers = 1
 	}
@@ -49,6 +50,7 @@ func NewBuilder(dynamicClient dynamic.Interface, kubeClient kubernetes.Interface
 		dynamicClient: dynamicClient,
 		kubeClient:    kubeClient,
 		resolver:      repoResolver,
+		ociResolver:   ociResolver,
 		versionEngine: versionEngine,
 		workers:       workers,
 		repoOverrides: repoOverrides,
@@ -105,7 +107,7 @@ func (b *Builder) buildSingle(ctx context.Context, workload model.WorkloadRecord
 	record = b.applyRepoOverride(record)
 
 	if canResolve(record) {
-		latest, err := b.resolver.ResolveLatest(ctx, record.RepoURL, record.ChartName)
+		latest, err := b.resolveLatest(ctx, record)
 		if err == nil {
 			record.LatestVersion = latest
 		} else if IsUnsupportedResolution(err) {
@@ -230,10 +232,22 @@ func canResolve(record model.ChartRecord) bool {
 	if strings.TrimSpace(record.ChartName) == "" || strings.TrimSpace(record.RepoURL) == "" || record.RepoURL == "unknown" {
 		return false
 	}
-	if record.SourceKind != "helm_repo" {
+	switch record.SourceKind {
+	case "helm_repo", "oci_registry":
+		return true
+	default:
 		return false
 	}
-	return true
+}
+
+func (b *Builder) resolveLatest(ctx context.Context, record model.ChartRecord) (string, error) {
+	if record.SourceKind == "oci_registry" {
+		if b.ociResolver == nil {
+			return "", resolver.ErrUnsupportedRepo
+		}
+		return b.ociResolver.ResolveLatest(ctx, record.RepoURL, record.ChartName)
+	}
+	return b.resolver.ResolveLatest(ctx, record.RepoURL, record.ChartName)
 }
 
 func IsUnsupportedResolution(err error) bool {
