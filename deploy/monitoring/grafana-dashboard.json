@@ -27,7 +27,10 @@
       {
         "name": "namespace",
         "type": "query",
-        "datasource": "${DS_PROMETHEUS}",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${DS_PROMETHEUS}"
+        },
         "query": "label_values(helm_chart_info, namespace)",
         "includeAll": true,
         "multi": true,
@@ -45,7 +48,10 @@
       "type": "stat",
       "title": "Outdated Charts",
       "gridPos": { "h": 6, "w": 6, "x": 0, "y": 0 },
-      "datasource": "${DS_PROMETHEUS}",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
       "targets": [
         {
           "expr": "sum(helm_chart_outdated{namespace=~\"$namespace\"})",
@@ -68,7 +74,10 @@
       "type": "stat",
       "title": "Tracked Charts",
       "gridPos": { "h": 6, "w": 6, "x": 6, "y": 0 },
-      "datasource": "${DS_PROMETHEUS}",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
       "targets": [
         {
           "expr": "count(helm_chart_info{namespace=~\"$namespace\"})",
@@ -91,7 +100,10 @@
       "type": "timeseries",
       "title": "Reconcile Duration (seconds)",
       "gridPos": { "h": 6, "w": 12, "x": 12, "y": 0 },
-      "datasource": "${DS_PROMETHEUS}",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
       "targets": [
         {
           "expr": "helm_watch_reconcile_duration_seconds",
@@ -101,12 +113,15 @@
     },
     {
       "type": "table",
-      "title": "Top Outdated Charts",
+      "title": "Chart Versions Matrix",
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
-      "datasource": "${DS_PROMETHEUS}",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
       "targets": [
         {
-          "expr": "topk(10, helm_chart_version_lag{namespace=~\"$namespace\"})",
+          "expr": "max by (app, namespace, chart, repo, source_kind, current_version, latest_version, deployment_type) (helm_chart_info{namespace=~\"$namespace\"})",
           "format": "table",
           "instant": true,
           "refId": "A"
@@ -120,7 +135,10 @@
       "type": "bargauge",
       "title": "Outdated Charts by Namespace",
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
-      "datasource": "${DS_PROMETHEUS}",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
       "targets": [
         {
           "expr": "sum by (namespace) (helm_chart_outdated)",
@@ -141,7 +159,10 @@
       "type": "timeseries",
       "title": "Reconcile Errors (rate)",
       "gridPos": { "h": 8, "w": 24, "x": 0, "y": 14 },
-      "datasource": "${DS_PROMETHEUS}",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
       "targets": [
         {
           "expr": "rate(helm_watch_reconcile_errors_total[5m])",
