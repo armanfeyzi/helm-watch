@@ -39,11 +39,15 @@ func (d *ArgoCDApplicationDiscoverer) Discover(ctx context.Context) ([]model.Wor
 		}
 
 		name := app.GetName()
-		namespace := applicationDestinationNamespace(app)
+		appNamespace := app.GetNamespace()
+		destinationNamespace := applicationDestinationNamespace(app)
 		out = append(out, model.WorkloadRecord{
-			ID:             workloadID(model.SourceTypeArgoCDApplication, namespace, name),
-			AppName:        name,
-			Namespace:      namespace,
+			// Keep the ID namespace as the Application CR namespace so later
+			// metadata resolution can re-fetch the Argo CD Application object.
+			ID:      workloadID(model.SourceTypeArgoCDApplication, appNamespace, name),
+			AppName: name,
+			// Expose the destination namespace in metrics/UI (workload namespace).
+			Namespace:      destinationNamespace,
 			SourceType:     model.SourceTypeArgoCDApplication,
 			DeploymentType: model.DeploymentTypeArgoCD,
 			DetectedAt:     nowUTC(),
