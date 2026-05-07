@@ -48,7 +48,7 @@
     {
       "type": "stat",
       "title": "Outdated Charts",
-      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 0 },
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 0 },
       "datasource": {
         "type": "prometheus",
         "uid": "${DS_PROMETHEUS}"
@@ -74,7 +74,7 @@
     {
       "type": "stat",
       "title": "Tracked Charts",
-      "gridPos": { "h": 6, "w": 6, "x": 6, "y": 0 },
+      "gridPos": { "h": 4, "w": 4, "x": 4, "y": 0 },
       "datasource": {
         "type": "prometheus",
         "uid": "${DS_PROMETHEUS}"
@@ -98,24 +98,9 @@
       }
     },
     {
-      "type": "timeseries",
-      "title": "Reconcile Duration (seconds)",
-      "gridPos": { "h": 6, "w": 12, "x": 12, "y": 0 },
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
-      },
-      "targets": [
-        {
-          "expr": "helm_watch_reconcile_duration_seconds",
-          "refId": "A"
-        }
-      ]
-    },
-    {
       "type": "table",
       "title": "Chart Versions Matrix",
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
+      "gridPos": { "h": 12, "w": 24, "x": 0, "y": 4 },
       "datasource": {
         "type": "prometheus",
         "uid": "${DS_PROMETHEUS}"
@@ -200,12 +185,40 @@
           "show": false,
           "reducers": []
         }
-      }
+      },
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "Value": true,
+              "namespace": true
+            },
+            "indexByName": {
+              "status": 0,
+              "app": 1,
+              "current_version": 2,
+              "latest_version": 3,
+              "chart": 4,
+              "repo": 5,
+              "deployment_type": 6,
+              "source_kind": 7
+            },
+            "renameByName": {
+              "current_version": "current ver",
+              "latest_version": "latest version",
+              "deployment_type": "deployment type",
+              "source_kind": "source kind"
+            }
+          }
+        }
+      ]
     },
     {
       "type": "bargauge",
       "title": "Outdated Charts by Namespace",
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
+      "gridPos": { "h": 4, "w": 16, "x": 8, "y": 0 },
       "datasource": {
         "type": "prometheus",
         "uid": "${DS_PROMETHEUS}"
@@ -228,8 +241,23 @@
     },
     {
       "type": "timeseries",
+      "title": "Reconcile Duration (seconds)",
+      "gridPos": { "h": 6, "w": 12, "x": 0, "y": 16 },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "targets": [
+        {
+          "expr": "helm_watch_reconcile_duration_seconds",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
       "title": "Reconcile Errors (rate)",
-      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 14 },
+      "gridPos": { "h": 6, "w": 12, "x": 12, "y": 16 },
       "datasource": {
         "type": "prometheus",
         "uid": "${DS_PROMETHEUS}"
