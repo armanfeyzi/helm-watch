@@ -83,6 +83,10 @@ helm_chart_outdated{app="alloy",namespace="monitoring",chart="alloy"} 1
 helm_chart_version_lag{app="alloy",namespace="monitoring",chart="alloy"} 202
 ```
 
+## Grafana Dashboard
+
+![Helm Watch Grafana dashboard](./image.png)
+
 ## Run Locally
 
 Prerequisites:
