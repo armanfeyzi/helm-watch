@@ -44,12 +44,13 @@ func (d *HelmReleaseDiscoverer) discoverWithSelector(ctx context.Context, select
 
 	for _, s := range secrets.Items {
 		rec := model.WorkloadRecord{
-			ID:             workloadID(model.SourceTypeHelmReleaseSecret, s.Namespace, s.Name),
-			AppName:        resolveReleaseName(s.Labels, s.Name),
-			Namespace:      s.Namespace,
-			SourceType:     model.SourceTypeHelmReleaseSecret,
-			DeploymentType: inferDeploymentTypeFromLabels(s.Labels),
-			DetectedAt:     nowUTC(),
+			ID:              workloadID(model.SourceTypeHelmReleaseSecret, s.Namespace, s.Name),
+			AppName:         resolveReleaseName(s.Labels, s.Name),
+			Namespace:       s.Namespace,
+			SourceNamespace: s.Namespace,
+			SourceType:      model.SourceTypeHelmReleaseSecret,
+			DeploymentType:  inferDeploymentTypeFromLabels(s.Labels),
+			DetectedAt:      nowUTC(),
 		}
 		key := releaseKey(rec.Namespace, rec.AppName)
 		considerLatest(seenRelease, key, rec, parseRevision(s.Labels))
@@ -64,12 +65,13 @@ func (d *HelmReleaseDiscoverer) discoverWithSelector(ctx context.Context, select
 
 	for _, c := range configMaps.Items {
 		rec := model.WorkloadRecord{
-			ID:             workloadID(model.SourceTypeHelmReleaseCM, c.Namespace, c.Name),
-			AppName:        resolveReleaseName(c.Labels, c.Name),
-			Namespace:      c.Namespace,
-			SourceType:     model.SourceTypeHelmReleaseCM,
-			DeploymentType: inferDeploymentTypeFromLabels(c.Labels),
-			DetectedAt:     nowUTC(),
+			ID:              workloadID(model.SourceTypeHelmReleaseCM, c.Namespace, c.Name),
+			AppName:         resolveReleaseName(c.Labels, c.Name),
+			Namespace:       c.Namespace,
+			SourceNamespace: c.Namespace,
+			SourceType:      model.SourceTypeHelmReleaseCM,
+			DeploymentType:  inferDeploymentTypeFromLabels(c.Labels),
+			DetectedAt:      nowUTC(),
 		}
 		key := releaseKey(rec.Namespace, rec.AppName)
 		considerLatest(seenRelease, key, rec, parseRevision(c.Labels))

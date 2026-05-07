@@ -124,7 +124,13 @@ func (b *Builder) buildSingle(ctx context.Context, workload model.WorkloadRecord
 }
 
 func (b *Builder) populateFromArgoCD(ctx context.Context, workload model.WorkloadRecord, record model.ChartRecord) model.ChartRecord {
-	app, err := b.dynamicClient.Resource(argoCDApplicationGVR).Namespace(workload.Namespace).Get(ctx, workload.AppName, metav1.GetOptions{})
+	// Application CRs live in the Argo CD namespace (SourceNamespace), not in
+	// the workload destination namespace stored on Namespace.
+	sourceNamespace := workload.SourceNamespace
+	if sourceNamespace == "" {
+		sourceNamespace = workload.Namespace
+	}
+	app, err := b.dynamicClient.Resource(argoCDApplicationGVR).Namespace(sourceNamespace).Get(ctx, workload.AppName, metav1.GetOptions{})
 	if err != nil {
 		record.ResolutionError = fmt.Sprintf("get argocd application: %v", err)
 		return record
@@ -157,9 +163,16 @@ func (b *Builder) populateFromHelmObject(ctx context.Context, workload model.Wor
 		return record
 	}
 
+	// For Helm releases the source object lives in the workload namespace.
+	// SourceNamespace mirrors Namespace, but fall back if it's missing.
+	sourceNamespace := workload.SourceNamespace
+	if sourceNamespace == "" {
+		sourceNamespace = workload.Namespace
+	}
+
 	switch workload.SourceType {
 	case model.SourceTypeHelmReleaseSecret:
-		secret, err := b.kubeClient.CoreV1().Secrets(workload.Namespace).Get(ctx, objectName, metav1.GetOptions{})
+		secret, err := b.kubeClient.CoreV1().Secrets(sourceNamespace).Get(ctx, objectName, metav1.GetOptions{})
 		if err != nil {
 			record.ResolutionError = fmt.Sprintf("get helm secret: %v", err)
 			return record
@@ -170,7 +183,7 @@ func (b *Builder) populateFromHelmObject(ctx context.Context, workload model.Wor
 		}
 
 	case model.SourceTypeHelmReleaseCM:
-		cm, err := b.kubeClient.CoreV1().ConfigMaps(workload.Namespace).Get(ctx, objectName, metav1.GetOptions{})
+		cm, err := b.kubeClient.CoreV1().ConfigMaps(sourceNamespace).Get(ctx, objectName, metav1.GetOptions{})
 		if err != nil {
 			record.ResolutionError = fmt.Sprintf("get helm configmap: %v", err)
 			return record
