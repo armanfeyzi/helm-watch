@@ -28,13 +28,21 @@ const (
 )
 
 // WorkloadRecord is the canonical discovered workload contract for Helm Watch.
+//
+// Namespace is the workload destination namespace (where the application is
+// actually deployed). SourceNamespace is where the originating object lives
+// — for Argo CD that is the namespace of the Application CR (e.g. argocd),
+// for Helm releases it matches the destination. SourceNamespace is used
+// internally to re-fetch the source object during enrichment, while
+// Namespace is exposed in metrics and dashboards.
 type WorkloadRecord struct {
-	ID             string
-	AppName        string
-	Namespace      string
-	SourceType     SourceType
-	DeploymentType DeploymentType
-	DetectedAt     time.Time
+	ID              string
+	AppName         string
+	Namespace       string
+	SourceNamespace string
+	SourceType      SourceType
+	DeploymentType  DeploymentType
+	DetectedAt      time.Time
 }
 
 // ChartRecord is the canonical chart view generated for each workload.
