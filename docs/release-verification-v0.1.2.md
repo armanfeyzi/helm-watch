@@ -67,18 +67,19 @@ The following require execution in a live cluster and are not fully automatable 
 - Alert firing behavior in production-like namespaces
 - Performance under 100+ workloads
 
-Status: ⏳ pending manual environment validation
+**Step-by-step:** follow [cluster-validation.md](./cluster-validation.md) (deploy → port-forward → Prometheus → Grafana → notes).
+
+Status: ⏳ pending manual environment validation (run the checklist above and update this section with date + cluster profile when done)
 
 ## Known Limitations (Current Release)
 
 - Native Helm Secret/ConfigMap sources are best-effort and may not always expose complete repo/version metadata.
-- OCI-backed chart repos are currently treated as unsupported for upstream latest-version resolution.
+- **OCI:** public registries are resolved via the Registry HTTP API (anonymous where allowed). **Private** OCI registries need auth that is not fully covered in this release line; use overrides toward a public index when possible, or track auth as a hardening item.
 - Version lag is a numeric heuristic designed for prioritization, not strict semantic distance.
 
 ## Recommended Next Actions
 
-1. Deploy `v0.1.2` to a non-production cluster.
-2. Confirm `/healthz` and `/metrics` via port-forward.
-3. Validate Prometheus scrape target and dashboard data.
-4. Tune alert filters for your actual production namespace naming.
-5. Record findings and create `v0.1.3` hardening tasks.
+1. Run [cluster-validation.md](./cluster-validation.md) on a non-production cluster against the image tag you care about (for example `v0.1.2`).
+2. Fill in the findings table at the end of that doc (or paste results here under section 5).
+3. Tune alert filters and ServiceMonitor labels for your Prometheus Operator install.
+4. Open targeted issues for gaps (RBAC, `unknown` rate, private OCI, dashboard variables) and cut `v0.1.3` (or the next patch) from that list.

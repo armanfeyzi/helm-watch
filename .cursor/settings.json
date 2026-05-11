@@ -1,0 +1,10 @@
+{
+  "plugins": {
+    "superpowers": {
+      "enabled": true
+    },
+    "continual-learning": {
+      "enabled": true
+    }
+  }
+}
