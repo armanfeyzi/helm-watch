@@ -54,6 +54,14 @@ jobs:
       - name: Lint Helm chart
         run: helm lint ./deploy/helm-watch
 
+      - name: Render Helm chart (template smoke)
+        run: |
+          set -euo pipefail
+          helm template helm-watch ./deploy/helm-watch --namespace helm-watch >/dev/null
+          helm template helm-watch ./deploy/helm-watch --namespace helm-watch \
+            --set serviceMonitor.enabled=true \
+            --set serviceMonitor.namespace=monitoring >/dev/null
+
       - name: Build Docker image
         run: docker build -t helm-watch:ci .
 
