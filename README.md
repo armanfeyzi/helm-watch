@@ -72,12 +72,13 @@ Implemented so far:
 - Core chart metrics pipeline
 - Deploy directory with Kubernetes manifests and Helm chart
 - GitHub Actions CI producing binaries and container image artifacts
+- Helm HTTP and OCI upstream resolution (public registries), repo overrides, starter Grafana dashboard and Prometheus rules under `deploy/monitoring/`
 
 Planned next:
 
-- Repository resolver (`index.yaml` fetch + cache)
-- Version comparison engine
-- Full metrics contract and dashboards
+- **Operator validation:** run the [cluster validation checklist](docs/cluster-validation.md) in a real cluster, then harden from findings (see also `docs/release-verification-v0.1.2.md`).
+- Private OCI / registry authentication and other edge cases called out in release notes.
+- Dashboard and alert tuning for common kube-prometheus-stack label conventions.
 
 ## Example Metrics
 
@@ -183,13 +184,12 @@ Tag-based release workflow at `.github/workflows/release.yml`:
 
 ## Roadmap
 
-- Repository resolver and caching strategy
-- Version engine with robust semver handling
-- Outdated and lag metrics
-- Dashboard and alert templates
-- Hardening for edge cases (multi-source apps, unsupported sources, partial failures)
+- Live-cluster verification on representative clusters; document coverage and `unknown` rates ([cluster-validation.md](docs/cluster-validation.md)).
+- Semver and lag heuristics: richer edge-case handling where chart versioning is non-standard.
+- Hardening: multi-source Argo CD apps, partial discovery failures, private registries, performance at high workload counts.
+- Optional: publish a Helm chart repo index or artifact signing policy if consumers need it.
 
-Release verification notes are tracked in `docs/release-verification-v0.1.2.md`.
+Release verification notes: `docs/release-verification-v0.1.2.md`.
 
 ## License
 
