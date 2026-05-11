@@ -30,6 +30,9 @@ jobs:
       - name: Run tests
         run: go test ./...
 
+      - name: Go vet
+        run: go vet ./...
+
       - name: Build release binaries
         run: |
           mkdir -p dist
@@ -41,10 +44,22 @@ jobs:
         with:
           version: v3.15.4
 
-      - name: Lint and package Helm chart
+      - name: Lint Helm chart
+        run: helm lint ./deploy/helm-watch
+
+      - name: Render Helm chart (template smoke)
         run: |
-          helm lint ./deploy/helm-watch
-          helm package ./deploy/helm-watch --destination dist
+          set -euo pipefail
+          helm template helm-watch ./deploy/helm-watch --namespace helm-watch >/dev/null
+          helm template helm-watch ./deploy/helm-watch --namespace helm-watch \
+            --set serviceMonitor.enabled=true \
+            --set serviceMonitor.namespace=monitoring >/dev/null
+          helm template helm-watch ./deploy/helm-watch --namespace helm-watch \
+            --set-json 'config.repoOverrides={"vault":"https://helm.releases.hashicorp.com","redis":"oci://registry-1.docker.io/bitnamicharts"}' \
+            >/dev/null
+
+      - name: Package Helm chart
+        run: helm package ./deploy/helm-watch --destination dist
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3

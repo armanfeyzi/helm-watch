@@ -31,6 +31,9 @@ jobs:
       - name: Run tests
         run: go test ./...
 
+      - name: Go vet
+        run: go vet ./...
+
       - name: Build Linux amd64 binary
         run: |
           mkdir -p dist
@@ -61,6 +64,9 @@ jobs:
           helm template helm-watch ./deploy/helm-watch --namespace helm-watch \
             --set serviceMonitor.enabled=true \
             --set serviceMonitor.namespace=monitoring >/dev/null
+          helm template helm-watch ./deploy/helm-watch --namespace helm-watch \
+            --set-json 'config.repoOverrides={"vault":"https://helm.releases.hashicorp.com","redis":"oci://registry-1.docker.io/bitnamicharts"}' \
+            >/dev/null
 
       - name: Build Docker image
         run: docker build -t helm-watch:ci .
