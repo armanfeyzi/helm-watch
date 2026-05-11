@@ -4,6 +4,18 @@ Use this checklist after a release build to confirm Helm Watch behaves correctly
 
 **Prerequisites:** `kubectl` configured for a **non-production** cluster, optional `helm` 3.x.
 
+**Optional preflight (no cluster):** from the repo root:
+
+```bash
+helm lint ./deploy/helm-watch
+helm template helm-watch ./deploy/helm-watch --namespace helm-watch >/dev/null
+helm template helm-watch ./deploy/helm-watch --namespace helm-watch \
+  --set serviceMonitor.enabled=true \
+  --set serviceMonitor.namespace=monitoring >/dev/null
+```
+
+These match CI so a green pipeline implies the chart still templates cleanly.
+
 ## 1) Deploy
 
 Pick **one** path.
