@@ -23,4 +23,5 @@ spec:
       path: /metrics
       interval: {{ .Values.serviceMonitor.interval | quote }}
       scrapeTimeout: {{ .Values.serviceMonitor.scrapeTimeout | quote }}
+      honorLabels: {{ .Values.serviceMonitor.honorLabels }}
 {{- end }}
