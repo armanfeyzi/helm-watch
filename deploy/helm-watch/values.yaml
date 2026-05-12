@@ -42,3 +42,37 @@ serviceMonitor:
   # Must match your Prometheus CR serviceMonitorSelector (kube-prometheus-stack: usually release: <prometheus-helm-release>).
   additionalLabels:
     release: prometheus
+
+# PrometheusRule CR (requires Prometheus Operator). Use for tunable alerts;
+# deploy/monitoring/prometheus-rules.yaml is a static bootstrap with the same defaults.
+# If enabled, keep at least one of chartOutdated / reconcileErrors / metricsMissing /
+# unknownVersionRatio enabled, or the rules list may be empty and fail to apply.
+prometheusRule:
+  enabled: false
+  namespace: monitoring
+  # Labels your Prometheus CR ruleSelector must match (kube-prometheus-stack often uses release: <release-name>).
+  additionalLabels:
+    release: prometheus
+
+  chartOutdated:
+    enabled: true
+    # Regex for workload namespace on helm_chart_* metrics (Prometheus RE2).
+    namespaceRegex: "prod|production"
+    for: "15m"
+
+  reconcileErrors:
+    enabled: true
+    increaseWindow: "10m"
+    threshold: 3
+    for: "5m"
+
+  metricsMissing:
+    enabled: true
+    for: "10m"
+
+  unknownVersionRatio:
+    enabled: true
+    namespaceRegex: "prod|production"
+    # Alert when unknown_count / chart_count exceeds this ratio (0.30 = 30%).
+    ratioThreshold: 0.30
+    for: "20m"

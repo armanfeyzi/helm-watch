@@ -1,0 +1,66 @@
+{{- if .Values.prometheusRule.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ include "helm-watch.fullname" . }}
+  namespace: {{ .Values.prometheusRule.namespace }}
+  labels:
+    app.kubernetes.io/name: {{ include "helm-watch.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+{{- with .Values.prometheusRule.additionalLabels }}
+{{ toYaml . | indent 4 }}
+{{- end }}
+spec:
+  groups:
+    - name: helm-watch.rules
+      rules:
+{{- if .Values.prometheusRule.chartOutdated.enabled }}
+        - alert: HelmWatchChartOutdated
+          expr: helm_chart_outdated{namespace=~"{{ .Values.prometheusRule.chartOutdated.namespaceRegex }}"} > 0
+          for: {{ .Values.prometheusRule.chartOutdated.for | quote }}
+          labels:
+            severity: warning
+            component: helm-watch
+          annotations:
+            summary: "Helm chart outdated in production namespace"
+            description: "Chart {{ "{{" }} $labels.chart {{ "}}" }} for app {{ "{{" }} $labels.app {{ "}}" }} in namespace {{ "{{" }} $labels.namespace {{ "}}" }} is outdated."
+{{- end }}
+{{- if .Values.prometheusRule.reconcileErrors.enabled }}
+        - alert: HelmWatchReconcileErrorsHigh
+          expr: increase(helm_watch_reconcile_errors_total[{{ .Values.prometheusRule.reconcileErrors.increaseWindow }}]) > {{ .Values.prometheusRule.reconcileErrors.threshold }}
+          for: {{ .Values.prometheusRule.reconcileErrors.for | quote }}
+          labels:
+            severity: critical
+            component: helm-watch
+          annotations:
+            summary: "Helm Watch reconcile errors are increasing"
+            description: "More than {{ .Values.prometheusRule.reconcileErrors.threshold }} reconcile errors in the last {{ .Values.prometheusRule.reconcileErrors.increaseWindow }}."
+{{- end }}
+{{- if .Values.prometheusRule.metricsMissing.enabled }}
+        - alert: HelmWatchMetricsMissing
+          expr: absent(helm_chart_info)
+          for: {{ .Values.prometheusRule.metricsMissing.for | quote }}
+          labels:
+            severity: warning
+            component: helm-watch
+          annotations:
+            summary: "Helm Watch metrics missing"
+            description: "No helm_chart_info metrics observed for {{ .Values.prometheusRule.metricsMissing.for }}."
+{{- end }}
+{{- if .Values.prometheusRule.unknownVersionRatio.enabled }}
+        - alert: HelmWatchUnknownVersionRatioHigh
+          expr: |-
+            (
+              sum by (namespace) (helm_chart_unknown{namespace=~"{{ .Values.prometheusRule.unknownVersionRatio.namespaceRegex }}"})
+              /
+              clamp_min(count by (namespace) (helm_chart_info{namespace=~"{{ .Values.prometheusRule.unknownVersionRatio.namespaceRegex }}"}), 1)
+            ) > {{ .Values.prometheusRule.unknownVersionRatio.ratioThreshold }}
+          for: {{ .Values.prometheusRule.unknownVersionRatio.for | quote }}
+          labels:
+            severity: warning
+            component: helm-watch
+          annotations:
+            summary: "High unknown chart version ratio"
+            description: "Namespace {{ "{{" }} $labels.namespace {{ "}}" }} has more than {{ mulf .Values.prometheusRule.unknownVersionRatio.ratioThreshold 100.0 | printf "%.0f" }}% unknown chart versions for {{ .Values.prometheusRule.unknownVersionRatio.for }}."
+{{- end }}
+{{- end }}
