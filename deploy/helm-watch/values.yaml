@@ -34,6 +34,16 @@ config:
     # argocd-image-updater: https://argoproj.github.io/argo-helm
     # redis: oci://registry-1.docker.io/bitnamicharts
 
+  # Kubernetes client rate limit (defaults reduce client-side throttling when
+  # listing many Argo CD Applications). Tune if the API server complains.
+  kubeClientQPS: 40
+  kubeClientBurst: 80
+
+  # Optional: mount registry credentials from an existing Secret (JSON body
+  # matching HELM_WATCH_REGISTRY_CREDENTIALS). Prefer this over plain values.
+  registryCredentialsSecret: ""
+  registryCredentialsSecretKey: "registry-credentials.json"
+
 serviceMonitor:
   enabled: false
   namespace: monitoring

@@ -43,6 +43,7 @@ helm upgrade --install helm-watch ./deploy/helm-watch \
 ## Notes
 
 - `ServiceMonitor` and `PrometheusRule` require Prometheus Operator CRDs.
+- **kube-prometheus-stack:** your `Prometheus` CR `serviceMonitorSelector` / `ruleSelector` must match labels on these objects. The samples use `release: prometheus`; many installs use `release: kube-prometheus-stack` (or your Helm release name). Edit labels accordingly, or set `serviceMonitor.additionalLabels` / `prometheusRule.additionalLabels` in the chart.
 - Update namespace labels and alert filters to match your environment.
 - The default rules include `HelmWatchUnknownVersionRatioHigh` (>30% unknown versions for 20m in `prod|production` namespaces). Adjust the namespace regex and threshold to your conventions, or use the Helm chart (`prometheusRule` in `deploy/helm-watch/values.yaml`) to template those values per environment.
 - The dashboard includes `Unknown Charts` and `Unknown Charts by Namespace` panels based on `helm_chart_unknown`.

@@ -154,8 +154,8 @@ func newDynamicClientWithApps(apps ...*unstructured.Unstructured) *dynamicfake.F
 
 func newBuilder(t *testing.T, dyn *dynamicfake.FakeDynamicClient) *catalog.Builder {
 	t.Helper()
-	repoResolver := resolver.NewRepositoryResolver(nil, time.Minute)
-	ociResolver := resolver.NewOCIResolver(nil, time.Minute)
+	repoResolver := resolver.NewRepositoryResolver(nil, time.Minute, nil)
+	ociResolver := resolver.NewOCIResolver(nil, time.Minute, nil)
 	return catalog.NewBuilder(
 		dyn,
 		kubefake.NewSimpleClientset(),

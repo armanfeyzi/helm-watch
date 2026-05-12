@@ -77,7 +77,7 @@ Implemented so far:
 Planned next:
 
 - **Operator validation:** for each release line, run the [cluster validation checklist](docs/cluster-validation.md) in a real cluster and record outcomes in `docs/release-verification-v0.x.y.md` (current: [release-verification-v0.2.0.md](docs/release-verification-v0.2.0.md)).
-- Private OCI / registry authentication and other edge cases called out in release notes.
+- Private OCI / Helm repositories that need auth beyond HTTP Basic on the registry token URL and `index.yaml` (for example exotic SSO-only flows), plus other edge cases called out in release notes.
 - Dashboard and alert tuning for common kube-prometheus-stack label conventions.
 
 ## Example Metrics
@@ -116,6 +116,8 @@ Useful environment variables:
   or an Argo CD `Application` whose `spec.source.repoURL` points at a Git mirror instead of a Helm repo).
   Example: `vault=https://helm.releases.hashicorp.com,argocd-image-updater=https://argoproj.github.io/argo-helm`.
   OCI repos are supported too: `redis=oci://registry-1.docker.io/bitnamicharts`.
+- `HELM_WATCH_KUBE_CLIENT_QPS` (default `40`) and `HELM_WATCH_KUBE_CLIENT_BURST` (default `80`) tune Kubernetes client-side rate limits for LIST/WATCH; higher values reduce throttling when many Argo CD `Application` objects exist.
+- `HELM_WATCH_REGISTRY_CREDENTIALS` (optional JSON object) or `HELM_WATCH_REGISTRY_CREDENTIALS_FILE` (path to the same JSON) supplies per-host HTTP Basic credentials for private Helm `index.yaml` and OCI registry token exchanges. Example: `{"ghcr.io":{"username":"robot","password":"..."}}`. If both are set, the file wins.
 - `HELM_WATCH_KUBECONFIG` (optional fallback for local runs)
 - `HELM_WATCH_LOG_LEVEL` (default `info`)
 
@@ -133,6 +135,7 @@ Common cases and how to fix them:
 | ----------------------------------------------------- | -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
 | `helm_repo` (`https://...github.io/...`)              | Yes (fetches `index.yaml`)             | -                                                                                                                           |
 | `oci_registry` (`ghcr.io/...`, `registry-1.docker.io/...`) | Yes (Docker Registry v2 API, paginated) | -                                                                                                                           |
+| Private `helm_repo` or `oci_registry` (401 without credentials) | No until configured | Set `HELM_WATCH_REGISTRY_CREDENTIALS` or `HELM_WATCH_REGISTRY_CREDENTIALS_FILE` (JSON map keyed by registry hostname; see env list above). |
 | `git` (Argo CD or Helm release pointing at a Git repo) | No                                     | Add an override mapping the chart name to the real Helm/OCI repo. Overrides take precedence over `git` sources.             |
 | Helm release without a stored repo URL                | No                                     | Add an override mapping the chart name to the upstream repo.                                                                |
 | Workloads with `current_version=main` or other non-semver | No                                     | These are GitOps-rendered manifests with no upstream chart version to compare against. Status will stay `unknown`.          |

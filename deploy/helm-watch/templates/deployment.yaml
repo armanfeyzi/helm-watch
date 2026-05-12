@@ -34,6 +34,17 @@ spec:
               value: {{ .Values.config.reconcileEvery | quote }}
             - name: HELM_WATCH_REPO_CACHE_TTL
               value: {{ .Values.config.repoCacheTTL | quote }}
+            - name: HELM_WATCH_KUBE_CLIENT_QPS
+              value: {{ .Values.config.kubeClientQPS | quote }}
+            - name: HELM_WATCH_KUBE_CLIENT_BURST
+              value: {{ .Values.config.kubeClientBurst | quote }}
+            {{- if .Values.config.registryCredentialsSecret }}
+            - name: HELM_WATCH_REGISTRY_CREDENTIALS
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.config.registryCredentialsSecret }}
+                  key: {{ .Values.config.registryCredentialsSecretKey | quote }}
+            {{- end }}
             {{- with .Values.config.repoOverrides }}
             - name: HELM_WATCH_REPO_OVERRIDES
               value: "{{- $first := true -}}

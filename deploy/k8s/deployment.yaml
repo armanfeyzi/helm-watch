@@ -30,6 +30,10 @@ spec:
               value: "1h"
             - name: HELM_WATCH_REPO_CACHE_TTL
               value: "5m"
+            - name: HELM_WATCH_KUBE_CLIENT_QPS
+              value: "40"
+            - name: HELM_WATCH_KUBE_CLIENT_BURST
+              value: "80"
           readinessProbe:
             httpGet:
               path: /healthz
