@@ -1,5 +1,7 @@
 # Release Verification - v0.1.2
 
+> Superseded for current release tracking by [release-verification-v0.2.0.md](./release-verification-v0.2.0.md). This file remains for the v0.1.2 line.
+
 This document captures Milestone 8 verification status for the first operational release line.
 
 ## Release Metadata
@@ -80,7 +82,7 @@ Status: ⏳ pending manual environment validation (run the checklist above and u
 
 ## Recommended Next Actions
 
-1. Run [cluster-validation.md](./cluster-validation.md) on a non-production cluster against the image tag you care about (for example `v0.1.2`).
+1. Run [cluster-validation.md](./cluster-validation.md) on a non-production cluster against the image tag you care about (for example `v0.2.0`; see [release-verification-v0.2.0.md](./release-verification-v0.2.0.md) for the current line).
 2. Fill in the findings table at the end of that doc (or paste results here under section 5).
 3. Tune alert filters and ServiceMonitor labels for your Prometheus Operator install.
 4. Open targeted issues for gaps (RBAC, `unknown` rate, private OCI, dashboard variables) and cut `v0.1.3` (or the next patch) from that list.

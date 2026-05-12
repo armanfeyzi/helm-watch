@@ -34,10 +34,10 @@ From the repository root, pin an image tag that matches your release (avoid drif
 ```bash
 helm upgrade --install helm-watch ./deploy/helm-watch \
   --namespace helm-watch --create-namespace \
-  --set image.tag=v0.1.2
+  --set image.tag=v0.2.0
 ```
 
-Replace `v0.1.2` with the tag you are validating.
+Replace `v0.2.0` with the tag you are validating.
 
 ### Option B — Raw manifests
 
@@ -130,7 +130,7 @@ Tune rule filters for your namespace conventions before relying on them in produ
 
 ## 7) Record findings
 
-Capture in an issue or `docs/release-verification-v0.1.x.md`:
+Capture in an issue or `docs/release-verification-v0.x.y.md` (for example `docs/release-verification-v0.2.0.md`):
 
 | Check | Pass / Fail | Notes |
 | --- | --- | --- |
