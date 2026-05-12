@@ -168,7 +168,7 @@ Two deployment methods are included:
 
 See `deploy/README.md` for commands.
 
-## CI Artifacts
+When scraping with the Prometheus Operator, keep **`serviceMonitor.honorLabels: true`** (Helm chart default). If it is `false`, relabeling replaces the workload `namespace` label on `helm_chart_*` metrics with the **helm-watch** pod namespace and per-namespace dashboards break.
 
 GitHub Actions workflow at `.github/workflows/ci.yml`:
 
