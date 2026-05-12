@@ -31,6 +31,15 @@ helm upgrade --install helm-watch ./deploy/helm-watch \
   --set serviceMonitor.namespace=monitoring
 ```
 
+Install PrometheusRule alerts from the chart (namespace regex, unknown ratio threshold, and durations are under `prometheusRule` in `deploy/helm-watch/values.yaml`):
+
+```bash
+helm upgrade --install helm-watch ./deploy/helm-watch \
+  --namespace helm-watch --create-namespace \
+  --set prometheusRule.enabled=true \
+  --set prometheusRule.namespace=monitoring
+```
+
 ## Notes
 
 - Update image tag/repository for your environment before deploy.
