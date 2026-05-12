@@ -76,7 +76,7 @@ Implemented so far:
 
 Planned next:
 
-- **Operator validation:** run the [cluster validation checklist](docs/cluster-validation.md) in a real cluster, then harden from findings (see also `docs/release-verification-v0.1.2.md`).
+- **Operator validation:** for each release line, run the [cluster validation checklist](docs/cluster-validation.md) in a real cluster and record outcomes in `docs/release-verification-v0.x.y.md` (current: [release-verification-v0.2.0.md](docs/release-verification-v0.2.0.md)).
 - Private OCI / registry authentication and other edge cases called out in release notes.
 - Dashboard and alert tuning for common kube-prometheus-stack label conventions.
 
@@ -190,7 +190,7 @@ Tag-based release workflow at `.github/workflows/release.yml`:
 - Hardening: multi-source Argo CD apps, partial discovery failures, private registries, performance at high workload counts.
 - Optional: publish a Helm chart repo index or artifact signing policy if consumers need it.
 
-Release verification notes: `docs/release-verification-v0.1.2.md`.
+Release verification notes: `docs/release-verification-v0.2.0.md` (older: `docs/release-verification-v0.1.2.md`).
 
 ## License
 
