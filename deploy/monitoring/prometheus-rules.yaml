@@ -9,6 +9,7 @@ metadata:
   namespace: monitoring
   labels:
     app.kubernetes.io/name: helm-watch
+    release: prometheus
 spec:
   groups:
     - name: helm-watch.rules

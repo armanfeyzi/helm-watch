@@ -14,6 +14,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/afeyzirealyticsio/helm-watch/internal/model"
+	"github.com/afeyzirealyticsio/helm-watch/internal/registryauth"
 )
 
 var (
@@ -22,14 +23,18 @@ var (
 )
 
 type RepositoryResolver struct {
-	client *http.Client
-	ttl    time.Duration
+	client   *http.Client
+	ttl      time.Duration
+	hostAuth map[string]registryauth.Credential
 
 	mu    sync.RWMutex
 	cache map[string]model.RepoCacheEntry
 }
 
-func NewRepositoryResolver(client *http.Client, ttl time.Duration) *RepositoryResolver {
+// NewRepositoryResolver resolves Helm HTTP repository indexes. hostAuth maps
+// canonical registry hostnames (see registryauth) to HTTP Basic credentials for
+// private index.yaml endpoints; nil or empty means anonymous only.
+func NewRepositoryResolver(client *http.Client, ttl time.Duration, hostAuth map[string]registryauth.Credential) *RepositoryResolver {
 	if client == nil {
 		client = &http.Client{Timeout: 10 * time.Second}
 	}
@@ -37,9 +42,10 @@ func NewRepositoryResolver(client *http.Client, ttl time.Duration) *RepositoryRe
 		ttl = 5 * time.Minute
 	}
 	return &RepositoryResolver{
-		client: client,
-		ttl:    ttl,
-		cache:  make(map[string]model.RepoCacheEntry),
+		client:   client,
+		ttl:      ttl,
+		hostAuth: hostAuth,
+		cache:    make(map[string]model.RepoCacheEntry),
 	}
 }
 
@@ -79,6 +85,11 @@ func (r *RepositoryResolver) RefreshRepoIndex(ctx context.Context, repoURL strin
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, indexURL, nil)
 	if err != nil {
 		return model.RepoCacheEntry{}, fmt.Errorf("build request: %w", err)
+	}
+	if u, err := url.Parse(indexURL); err == nil {
+		if c, ok := registryauth.Lookup(r.hostAuth, u.Hostname()); ok && c.Username != "" {
+			req.SetBasicAuth(c.Username, c.Password)
+		}
 	}
 
 	resp, err := r.client.Do(req)

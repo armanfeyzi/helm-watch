@@ -71,7 +71,7 @@ Summary from validation:
 - Pod logs show stable discovery and metrics reconciles (example profile: 39 workloads, 39 chart records; reconcile durations on the order of a few to tens of seconds depending on upstream resolution).
 - `deploy/monitoring/servicemonitor.yaml` applies cleanly against an existing Prometheus Operator install (`unchanged` when already present).
 
-Operational note: on clusters with many Argo CD `Application` objects, client-go may log **client-side throttling** while listing applications. That is expected Kubernetes behavior under load; if it becomes problematic, tune QPS/burst for the controller (future hardening) or reconcile intervals.
+Operational note: on clusters with many Argo CD `Application` objects, client-go may log **client-side throttling** while listing applications. Defaults now use a higher API **QPS/burst** (`HELM_WATCH_KUBE_CLIENT_QPS` / `HELM_WATCH_KUBE_CLIENT_BURST`); raise or lower them if your API server policy requires it.
 
 | Check | Pass / Fail | Notes |
 | --- | --- | --- |
@@ -86,7 +86,7 @@ Operational note: on clusters with many Argo CD `Application` objects, client-go
 ## Known Limitations (Current Release)
 
 - Native Helm Secret/ConfigMap sources are best-effort and may not always expose complete repo/version metadata.
-- **OCI:** public registries are resolved via the Registry HTTP API (anonymous where allowed). **Private** OCI registries need auth that is not fully covered in this release line; use overrides toward a public index when possible, or track auth as a hardening item.
+- **OCI / Helm HTTP:** public registries and anonymous token exchange are supported. **Private** registries can use `HELM_WATCH_REGISTRY_CREDENTIALS` or `HELM_WATCH_REGISTRY_CREDENTIALS_FILE` (HTTP Basic per hostname) for `index.yaml` and OCI Bearer token endpoints. Flows that do not accept Basic on the token URL may still fail.
 - Version lag is a numeric heuristic designed for prioritization, not strict semantic distance.
 
 ## Recommended Next Actions

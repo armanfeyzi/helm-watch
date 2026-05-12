@@ -6,6 +6,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/afeyzirealyticsio/helm-watch/internal/registryauth"
 )
 
 const (
@@ -26,6 +28,14 @@ type Config struct {
 	RepoOverrides  map[string]string
 	KubeconfigPath string
 	LogLevel       slog.Level
+
+	// RegistryCredentials supplies HTTP Basic auth for private Helm index and OCI
+	// token endpoints, keyed by canonical registry hostname.
+	RegistryCredentials map[string]registryauth.Credential
+	// KubeClientQPS and KubeClientBurst tune client-side rate limiting for the
+	// Kubernetes API (higher values reduce LIST throttling on large Argo CD fleets).
+	KubeClientQPS   float32
+	KubeClientBurst int
 }
 
 func FromEnv() Config {
@@ -40,6 +50,10 @@ func FromEnv() Config {
 		RepoOverrides:  getEnvRepoOverrides("HELM_WATCH_REPO_OVERRIDES"),
 		KubeconfigPath: os.Getenv("HELM_WATCH_KUBECONFIG"),
 		LogLevel:       getEnvLogLevel("HELM_WATCH_LOG_LEVEL", slog.LevelInfo),
+
+		RegistryCredentials: loadRegistryCredentialsFromEnv(),
+		KubeClientQPS:       getEnvFloat32("HELM_WATCH_KUBE_CLIENT_QPS", 40),
+		KubeClientBurst:     getEnvIntMin("HELM_WATCH_KUBE_CLIENT_BURST", 80, 1),
 	}
 }
 
@@ -92,6 +106,58 @@ func getEnvInt(key string, fallback int) int {
 		return fallback
 	}
 	return n
+}
+
+func getEnvIntMin(key string, fallback, min int) int {
+	v := os.Getenv(key)
+	if v == "" {
+		return fallback
+	}
+	n, err := strconv.Atoi(v)
+	if err != nil || n < min {
+		return fallback
+	}
+	return n
+}
+
+func getEnvFloat32(key string, fallback float32) float32 {
+	v := strings.TrimSpace(os.Getenv(key))
+	if v == "" {
+		return fallback
+	}
+	f, err := strconv.ParseFloat(v, 32)
+	if err != nil || f <= 0 {
+		return fallback
+	}
+	return float32(f)
+}
+
+func loadRegistryCredentialsFromEnv() map[string]registryauth.Credential {
+	filePath := strings.TrimSpace(os.Getenv("HELM_WATCH_REGISTRY_CREDENTIALS_FILE"))
+	if filePath != "" {
+		data, err := os.ReadFile(filePath)
+		if err != nil {
+			slog.Warn("registry credentials file not loaded", "path", filePath, "error", err)
+			return nil
+		}
+		m, err := registryauth.ParseCredentialsJSON(data)
+		if err != nil {
+			slog.Warn("registry credentials file invalid", "path", filePath, "error", err)
+			return nil
+		}
+		return m
+	}
+
+	raw := strings.TrimSpace(os.Getenv("HELM_WATCH_REGISTRY_CREDENTIALS"))
+	if raw == "" {
+		return nil
+	}
+	m, err := registryauth.ParseCredentialsJSON([]byte(raw))
+	if err != nil {
+		slog.Warn("HELM_WATCH_REGISTRY_CREDENTIALS not loaded", "error", err)
+		return nil
+	}
+	return m
 }
 
 func getEnvRepoOverrides(key string) map[string]string {

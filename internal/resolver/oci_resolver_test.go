@@ -2,11 +2,14 @@ package resolver
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/afeyzirealyticsio/helm-watch/internal/registryauth"
 )
 
 func TestParseOCIRepo(t *testing.T) {
@@ -130,7 +133,7 @@ func TestOCIResolverFollowsPagination(t *testing.T) {
 	defer srv.Close()
 
 	host := strings.TrimPrefix(srv.URL, "http://")
-	r := NewOCIResolver(srv.Client(), time.Minute)
+	r := NewOCIResolver(srv.Client(), time.Minute, nil)
 	r.client = &http.Client{Timeout: 5 * time.Second, Transport: rewriteTransport{base: srv.Client().Transport, host: host}}
 
 	got, err := r.ResolveLatest(context.Background(), host+"/grafana/helm-charts", "tempo-distributed")
@@ -156,7 +159,7 @@ func TestOCIResolverResolveLatestPublic(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	r := NewOCIResolver(srv.Client(), time.Minute)
+	r := NewOCIResolver(srv.Client(), time.Minute, nil)
 	host := strings.TrimPrefix(srv.URL, "http://")
 
 	// parseOCIRepo strips http(s) and oci, but the resolver always issues HTTPS.
@@ -172,7 +175,52 @@ func TestOCIResolverResolveLatestPublic(t *testing.T) {
 	}
 }
 
-// rewriteTransport rewrites https:// requests to http:// for the test server.
+func TestOCIResolverUsesBasicAuthOnTokenEndpoint(t *testing.T) {
+	var srv *httptest.Server
+	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/token":
+			u, p, ok := r.BasicAuth()
+			if !ok || u != "robot" || p != "tok" {
+				w.WriteHeader(http.StatusUnauthorized)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"token":"abc"}`))
+		case "/v2/ns/mychart/tags/list":
+			if r.Header.Get("Authorization") != "Bearer abc" {
+				realm := srv.URL + "/token"
+				w.Header().Set("WWW-Authenticate", fmt.Sprintf(`Bearer realm="%s",service="reg",scope="repository:ns/mychart:pull"`, realm))
+				w.WriteHeader(http.StatusUnauthorized)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"tags":["1.0.0","2.0.0"]}`))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+
+	host := strings.TrimPrefix(srv.URL, "http://")
+	auth := map[string]registryauth.Credential{
+		"127.0.0.1": {Username: "robot", Password: "tok"},
+	}
+	r := NewOCIResolver(srv.Client(), time.Minute, auth)
+	r.client = &http.Client{
+		Timeout:   5 * time.Second,
+		Transport: rewriteTransport{base: srv.Client().Transport, host: host},
+	}
+
+	got, err := r.ResolveLatest(context.Background(), host+"/ns", "mychart")
+	if err != nil {
+		t.Fatalf("ResolveLatest: %v", err)
+	}
+	if got != "2.0.0" {
+		t.Fatalf("got %q", got)
+	}
+}
+
 type rewriteTransport struct {
 	base http.RoundTripper
 	host string

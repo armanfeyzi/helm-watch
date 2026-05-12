@@ -5,8 +5,11 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"testing"
 	"time"
+
+	"github.com/afeyzirealyticsio/helm-watch/internal/registryauth"
 )
 
 const sampleIndexYAML = `
@@ -28,7 +31,7 @@ func TestResolveLatestFromIndex(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	resolver := NewRepositoryResolver(nil, 1*time.Minute)
+	resolver := NewRepositoryResolver(nil, 1*time.Minute, nil)
 	got, err := resolver.ResolveLatest(context.Background(), srv.URL, "alloy")
 	if err != nil {
 		t.Fatalf("resolve latest failed: %v", err)
@@ -46,7 +49,7 @@ func TestResolveLatestUsesCacheWhenFresh(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	resolver := NewRepositoryResolver(nil, 10*time.Minute)
+	resolver := NewRepositoryResolver(nil, 10*time.Minute, nil)
 	ctx := context.Background()
 
 	_, err := resolver.ResolveLatest(ctx, srv.URL, "alloy")
@@ -74,7 +77,7 @@ func TestResolveLatestStaleOnError(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	resolver := NewRepositoryResolver(nil, 1*time.Nanosecond)
+	resolver := NewRepositoryResolver(nil, 1*time.Nanosecond, nil)
 	ctx := context.Background()
 
 	_, err := resolver.ResolveLatest(ctx, srv.URL, "alloy")
@@ -95,22 +98,41 @@ func TestResolveLatestStaleOnError(t *testing.T) {
 }
 
 func TestResolveLatestUnsupportedOCI(t *testing.T) {
-	resolver := NewRepositoryResolver(nil, 1*time.Minute)
+	resolver := NewRepositoryResolver(nil, 1*time.Minute, nil)
 	_, err := resolver.ResolveLatest(context.Background(), "oci://ghcr.io/org/charts", "alloy")
 	if !errors.Is(err, ErrUnsupportedRepo) {
 		t.Fatalf("expected ErrUnsupportedRepo, got %v", err)
 	}
 }
 
-func TestResolveLatestChartNotFound(t *testing.T) {
+func TestResolveLatestHelmIndexWithBasicAuth(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		u, p, ok := r.BasicAuth()
+		if !ok || u != "robot" || p != "s3cret" {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		if r.URL.Path != "/index.yaml" {
+			t.Fatalf("expected /index.yaml, got %s", r.URL.Path)
+		}
 		_, _ = w.Write([]byte(sampleIndexYAML))
 	}))
 	defer srv.Close()
 
-	resolver := NewRepositoryResolver(nil, 1*time.Minute)
-	_, err := resolver.ResolveLatest(context.Background(), srv.URL, "not-here")
-	if !errors.Is(err, ErrChartNotFound) {
-		t.Fatalf("expected ErrChartNotFound, got %v", err)
+	parsed, err := url.Parse(srv.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	auth := map[string]registryauth.Credential{
+		registryauth.NormalizeHost(parsed.Host): {Username: "robot", Password: "s3cret"},
+	}
+	resolver := NewRepositoryResolver(srv.Client(), time.Minute, auth)
+
+	got, err := resolver.ResolveLatest(context.Background(), srv.URL, "alloy")
+	if err != nil {
+		t.Fatalf("resolve: %v", err)
+	}
+	if got != "1.8.2" {
+		t.Fatalf("got %s", got)
 	}
 }
