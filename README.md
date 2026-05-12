@@ -122,6 +122,10 @@ Endpoints:
 - `GET /healthz`
 - `GET /metrics`
 
+### `/metrics` shows only Go/process stats, no `helm_chart_*`
+
+If pod logs show `metrics reconcile completed` with `workload_count:0` **before** the first `discovery reconcile completed` line, you hit a startup ordering bug fixed in current `main` (metrics now waits for the first discovery pass). On older images, chart series stay empty until the next `HELM_WATCH_RECONCILE_EVERY` interval (default **1h**). Workaround without upgrading: wait for the interval or lower `config.reconcileEvery` in Helm values (for example `15m`) so the next publish runs sooner.
+
 ## When `latest_version` shows `unknown`
 
 Helm Watch resolves upstream versions only when a chart's `repo` is something it can query.

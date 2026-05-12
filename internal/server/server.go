@@ -103,6 +103,8 @@ func (s *Server) Run(ctx context.Context) error {
 }
 
 func (s *Server) runMetricsPipeline(ctx context.Context) {
+	s.discoveryManager.WaitFirstReconcile(ctx)
+
 	ticker := time.NewTicker(s.cfg.ReconcileEvery)
 	defer ticker.Stop()
 
