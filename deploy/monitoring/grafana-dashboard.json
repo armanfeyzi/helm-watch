@@ -4,7 +4,7 @@
   "title": "Helm Watch Overview",
   "timezone": "browser",
   "schemaVersion": 39,
-  "version": 2,
+  "version": 3,
   "refresh": "30s",
   "style": "dark",
   "tags": [
@@ -126,7 +126,7 @@
     {
       "type": "table",
       "title": "Chart Versions Matrix",
-      "gridPos": { "h": 12, "w": 24, "x": 0, "y": 4 },
+      "gridPos": { "h": 12, "w": 24, "x": 0, "y": 12 },
       "datasource": {
         "type": "prometheus",
         "uid": "${DS_PROMETHEUS}"
@@ -242,61 +242,179 @@
       ]
     },
     {
-      "type": "bargauge",
+      "type": "table",
       "title": "Outdated Charts by Namespace",
-      "gridPos": { "h": 4, "w": 12, "x": 12, "y": 0 },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 4 },
       "datasource": {
         "type": "prometheus",
         "uid": "${DS_PROMETHEUS}"
       },
       "targets": [
         {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "editorMode": "code",
           "expr": "sum by (namespace) (helm_chart_outdated{namespace=~\"$namespace\"})",
-          "legendFormat": "{{namespace}}",
+          "format": "table",
           "instant": true,
+          "legendFormat": "__auto",
+          "range": false,
           "refId": "A"
         }
       ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 1 }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "outdated" },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background"
+                }
+              }
+            ]
+          }
+        ]
+      },
       "options": {
-        "displayMode": "gradient",
-        "orientation": "horizontal",
-        "reduceOptions": {
-          "calcs": ["lastNotNull"],
-          "fields": "",
-          "values": false
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false,
+          "reducers": [],
+          "countRows": false
+        },
+        "sortBy": [
+          {
+            "displayName": "outdated",
+            "desc": true
+          }
+        ]
+      },
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true
+            },
+            "renameByName": {
+              "Value": "outdated"
+            }
+          }
         }
-      }
+      ]
     },
     {
-      "type": "bargauge",
+      "type": "table",
       "title": "Unknown Charts by Namespace",
-      "gridPos": { "h": 4, "w": 24, "x": 0, "y": 22 },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 30 },
       "datasource": {
         "type": "prometheus",
         "uid": "${DS_PROMETHEUS}"
       },
       "targets": [
         {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "editorMode": "code",
           "expr": "sum by (namespace) (helm_chart_unknown{namespace=~\"$namespace\"})",
-          "legendFormat": "{{namespace}}",
+          "format": "table",
           "instant": true,
+          "legendFormat": "__auto",
+          "range": false,
           "refId": "A"
         }
       ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 1 }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "unknown" },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background"
+                }
+              }
+            ]
+          }
+        ]
+      },
       "options": {
-        "displayMode": "gradient",
-        "orientation": "horizontal",
-        "reduceOptions": {
-          "calcs": ["lastNotNull"],
-          "fields": "",
-          "values": false
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false,
+          "reducers": [],
+          "countRows": false
+        },
+        "sortBy": [
+          {
+            "displayName": "unknown",
+            "desc": true
+          }
+        ]
+      },
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true
+            },
+            "renameByName": {
+              "Value": "unknown"
+            }
+          }
         }
-      }
+      ]
     },
     {
       "type": "timeseries",
       "title": "Reconcile Duration (seconds)",
-      "gridPos": { "h": 6, "w": 12, "x": 0, "y": 16 },
+      "gridPos": { "h": 6, "w": 12, "x": 0, "y": 24 },
       "datasource": {
         "type": "prometheus",
         "uid": "${DS_PROMETHEUS}"
@@ -311,7 +429,7 @@
     {
       "type": "timeseries",
       "title": "Reconcile Errors (rate)",
-      "gridPos": { "h": 6, "w": 12, "x": 12, "y": 16 },
+      "gridPos": { "h": 6, "w": 12, "x": 12, "y": 24 },
       "datasource": {
         "type": "prometheus",
         "uid": "${DS_PROMETHEUS}"
