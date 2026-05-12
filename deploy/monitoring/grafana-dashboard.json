@@ -4,7 +4,7 @@
   "title": "Helm Watch Overview",
   "timezone": "browser",
   "schemaVersion": 39,
-  "version": 1,
+  "version": 2,
   "refresh": "30s",
   "style": "dark",
   "tags": [
@@ -82,6 +82,32 @@
       "targets": [
         {
           "expr": "count(helm_chart_info{namespace=~\"$namespace\"})",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Unknown Charts",
+      "gridPos": { "h": 4, "w": 4, "x": 8, "y": 0 },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "targets": [
+        {
+          "expr": "sum(helm_chart_unknown{namespace=~\"$namespace\"})",
           "refId": "A"
         }
       ],
@@ -218,7 +244,7 @@
     {
       "type": "bargauge",
       "title": "Outdated Charts by Namespace",
-      "gridPos": { "h": 4, "w": 16, "x": 8, "y": 0 },
+      "gridPos": { "h": 4, "w": 12, "x": 12, "y": 0 },
       "datasource": {
         "type": "prometheus",
         "uid": "${DS_PROMETHEUS}"
@@ -226,6 +252,32 @@
       "targets": [
         {
           "expr": "sum by (namespace) (helm_chart_outdated{namespace=~\"$namespace\"})",
+          "legendFormat": "{{namespace}}",
+          "instant": true,
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "displayMode": "gradient",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "type": "bargauge",
+      "title": "Unknown Charts by Namespace",
+      "gridPos": { "h": 4, "w": 24, "x": 0, "y": 22 },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "targets": [
+        {
+          "expr": "sum by (namespace) (helm_chart_unknown{namespace=~\"$namespace\"})",
           "legendFormat": "{{namespace}}",
           "instant": true,
           "refId": "A"

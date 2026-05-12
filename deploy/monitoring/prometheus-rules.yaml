@@ -1,3 +1,7 @@
+# Static bootstrap for clusters not using the Helm chart. For per-environment
+# thresholds and namespace regexes, install the chart with
+# `prometheusRule.enabled=true` and tune `prometheusRule.*` in values.yaml
+# (see deploy/helm-watch/values.yaml).
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
 metadata:
@@ -38,3 +42,18 @@ spec:
           annotations:
             summary: "Helm Watch metrics missing"
             description: "No helm_chart_info metrics observed for 10 minutes."
+
+        - alert: HelmWatchUnknownVersionRatioHigh
+          expr: |
+            (
+              sum by (namespace) (helm_chart_unknown{namespace=~"prod|production"})
+              /
+              clamp_min(count by (namespace) (helm_chart_info{namespace=~"prod|production"}), 1)
+            ) > 0.30
+          for: 20m
+          labels:
+            severity: warning
+            component: helm-watch
+          annotations:
+            summary: "High unknown chart version ratio"
+            description: "Namespace {{ $labels.namespace }} has more than 30% unknown chart versions for 20 minutes."

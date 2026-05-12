@@ -24,6 +24,15 @@ helm upgrade --install helm-watch ./deploy/helm-watch \
   --set serviceMonitor.namespace=monitoring
 ```
 
+For **tunable** `PrometheusRule` alerts (namespace regex, unknown ratio threshold, `for` durations), install or upgrade with `prometheusRule.enabled=true` and edit `prometheusRule` in `deploy/helm-watch/values.yaml` (or pass `--set` / `--set-file`). The static `prometheus-rules.yaml` here mirrors the chart defaults and is meant for non-Helm installs.
+
+```bash
+helm upgrade --install helm-watch ./deploy/helm-watch \
+  --namespace helm-watch --create-namespace \
+  --set prometheusRule.enabled=true \
+  --set prometheusRule.namespace=monitoring
+```
+
 ## Import Grafana dashboard
 
 1. Open Grafana
@@ -35,6 +44,8 @@ helm upgrade --install helm-watch ./deploy/helm-watch \
 
 - `ServiceMonitor` and `PrometheusRule` require Prometheus Operator CRDs.
 - Update namespace labels and alert filters to match your environment.
+- The default rules include `HelmWatchUnknownVersionRatioHigh` (>30% unknown versions for 20m in `prod|production` namespaces). Adjust the namespace regex and threshold to your conventions, or use the Helm chart (`prometheusRule` in `deploy/helm-watch/values.yaml`) to template those values per environment.
+- The dashboard includes `Unknown Charts` and `Unknown Charts by Namespace` panels based on `helm_chart_unknown`.
 
 ## Grafana Explore: no `helm_chart_*` but the pod `/metrics` is fine
 

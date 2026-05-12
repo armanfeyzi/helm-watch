@@ -15,6 +15,10 @@ helm template helm-watch ./deploy/helm-watch --namespace helm-watch \
 helm template helm-watch ./deploy/helm-watch --namespace helm-watch \
   --set-json 'config.repoOverrides={"vault":"https://helm.releases.hashicorp.com","redis":"oci://registry-1.docker.io/bitnamicharts"}' \
   >/dev/null
+helm template helm-watch ./deploy/helm-watch --namespace helm-watch \
+  --set prometheusRule.enabled=true \
+  --set prometheusRule.namespace=monitoring \
+  >/dev/null
 ```
 
 These match CI so a green pipeline implies the chart still templates cleanly.
