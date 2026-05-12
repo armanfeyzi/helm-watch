@@ -15,12 +15,19 @@ type Manager struct {
 
 	mu      sync.RWMutex
 	records []model.WorkloadRecord
+
+	// firstReconcileDone is closed after the first reconcileOnce attempt finishes
+	// (success or error) so the metrics pipeline can avoid publishing an empty
+	// snapshot before discovery has populated at least once.
+	firstReconcileDone chan struct{}
+	firstOnce          sync.Once
 }
 
 func NewManager(discoverer Discoverer, interval time.Duration) *Manager {
 	return &Manager{
-		discoverer: discoverer,
-		interval:   interval,
+		discoverer:         discoverer,
+		interval:           interval,
+		firstReconcileDone: make(chan struct{}),
 	}
 }
 
@@ -50,6 +57,8 @@ func (m *Manager) Snapshot() []model.WorkloadRecord {
 }
 
 func (m *Manager) reconcileOnce(ctx context.Context) {
+	defer m.signalFirstReconcileDone()
+
 	start := time.Now()
 	records, err := m.discoverer.Discover(ctx)
 	if err != nil {
@@ -66,4 +75,18 @@ func (m *Manager) reconcileOnce(ctx context.Context) {
 		"workload_count", len(records),
 		"duration_ms", time.Since(start).Milliseconds(),
 	)
+}
+
+func (m *Manager) signalFirstReconcileDone() {
+	m.firstOnce.Do(func() { close(m.firstReconcileDone) })
+}
+
+// WaitFirstReconcile blocks until the first discovery reconcile attempt has
+// finished, or ctx is cancelled. Used so metrics publication does not run with
+// an empty workload snapshot on startup.
+func (m *Manager) WaitFirstReconcile(ctx context.Context) {
+	select {
+	case <-m.firstReconcileDone:
+	case <-ctx.Done():
+	}
 }
