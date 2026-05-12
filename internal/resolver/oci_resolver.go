@@ -15,17 +15,20 @@ import (
 	"github.com/Masterminds/semver/v3"
 
 	"github.com/afeyzirealyticsio/helm-watch/internal/model"
+	"github.com/afeyzirealyticsio/helm-watch/internal/registryauth"
 )
 
 // OCIResolver discovers chart versions stored as OCI artifacts.
 //
 // It speaks the Docker Registry V2 API (`/v2/<name>/tags/list`) with anonymous
 // Bearer token negotiation so it works for public Helm charts on ghcr.io,
-// registry-1.docker.io, quay.io, etc. Private registries will fail until token
-// configuration is added.
+// registry-1.docker.io, quay.io, etc. For private registries, configure
+// host-scoped HTTP Basic credentials (token endpoint and optional direct /v2/
+// access).
 type OCIResolver struct {
-	client *http.Client
-	ttl    time.Duration
+	client   *http.Client
+	ttl      time.Duration
+	hostAuth map[string]registryauth.Credential
 
 	mu    sync.RWMutex
 	cache map[string]ociCacheEntry
@@ -36,7 +39,7 @@ type ociCacheEntry struct {
 	expiresAt time.Time
 }
 
-func NewOCIResolver(client *http.Client, ttl time.Duration) *OCIResolver {
+func NewOCIResolver(client *http.Client, ttl time.Duration, hostAuth map[string]registryauth.Credential) *OCIResolver {
 	if client == nil {
 		client = &http.Client{Timeout: 10 * time.Second}
 	}
@@ -44,9 +47,10 @@ func NewOCIResolver(client *http.Client, ttl time.Duration) *OCIResolver {
 		ttl = 5 * time.Minute
 	}
 	return &OCIResolver{
-		client: client,
-		ttl:    ttl,
-		cache:  make(map[string]ociCacheEntry),
+		client:   client,
+		ttl:      ttl,
+		hostAuth: hostAuth,
+		cache:    make(map[string]ociCacheEntry),
 	}
 }
 
@@ -110,53 +114,99 @@ const maxOCIPages = 50
 func (r *OCIResolver) fetchTags(ctx context.Context, host, repository string) ([]string, error) {
 	startURL := fmt.Sprintf("https://%s/v2/%s/tags/list", host, repository)
 
-	// Token is negotiated lazily on the first 401 and reused for subsequent
-	// pages so we don't re-auth per page.
 	var token string
+	var useBasic bool
 	all := make([]string, 0, 256)
 	nextURL := startURL
 
 	for page := 0; page < maxOCIPages && nextURL != ""; page++ {
-		req, err := http.NewRequestWithContext(ctx, http.MethodGet, nextURL, nil)
-		if err != nil {
-			return nil, fmt.Errorf("build tags request: %w", err)
-		}
-		if token != "" {
-			req.Header.Set("Authorization", "Bearer "+token)
-		}
+		var body []byte
+		var linkHeader string
+		stopPaging := false
 
-		resp, err := r.client.Do(req)
-		if err != nil {
-			return nil, fmt.Errorf("fetch oci tags: %w", err)
-		}
-
-		if resp.StatusCode == http.StatusUnauthorized && token == "" {
-			t, tokenErr := r.negotiateAnonymousToken(ctx, resp, host, repository)
-			_ = resp.Body.Close()
-			if tokenErr != nil {
-				return nil, tokenErr
+	pages:
+		for attempt := 0; attempt < 8; attempt++ {
+			req, err := http.NewRequestWithContext(ctx, http.MethodGet, nextURL, nil)
+			if err != nil {
+				return nil, fmt.Errorf("build tags request: %w", err)
 			}
-			token = t
-			// Retry the same page with the token.
-			continue
-		}
-
-		if resp.StatusCode == http.StatusNotFound {
-			_ = resp.Body.Close()
-			if len(all) > 0 {
-				break
+			if token != "" {
+				req.Header.Set("Authorization", "Bearer "+token)
+			} else if useBasic {
+				if c, ok := registryauth.Lookup(r.hostAuth, host); ok && c.Username != "" {
+					req.SetBasicAuth(c.Username, c.Password)
+				}
 			}
-			return nil, ErrChartNotFound
-		}
-		if resp.StatusCode != http.StatusOK {
+
+			resp, err := r.client.Do(req)
+			if err != nil {
+				return nil, fmt.Errorf("fetch oci tags: %w", err)
+			}
+
+			if resp.StatusCode == http.StatusUnauthorized {
+				if token == "" && !useBasic {
+					www := resp.Header.Get("WWW-Authenticate")
+					_, _ = io.Copy(io.Discard, resp.Body)
+					_ = resp.Body.Close()
+
+					bearerOK := false
+					var bearErr error
+					if www != "" {
+						var t string
+						t, bearErr = r.negotiateBearerToken(ctx, www, host, repository)
+						if bearErr == nil && t != "" {
+							token = t
+							bearerOK = true
+						}
+					}
+					if bearerOK {
+						continue
+					}
+					if c, ok := registryauth.Lookup(r.hostAuth, host); ok && c.Username != "" {
+						useBasic = true
+						if bearErr != nil {
+							// Prefer basic path over a failed anonymous token exchange.
+							_ = bearErr
+						}
+						continue
+					}
+					if bearErr != nil {
+						return nil, bearErr
+					}
+					return nil, fmt.Errorf("oci tags status: %s", resp.Status)
+				}
+				_, _ = io.Copy(io.Discard, resp.Body)
+				_ = resp.Body.Close()
+				return nil, fmt.Errorf("oci tags status: %s", resp.Status)
+			}
+
+			if resp.StatusCode == http.StatusNotFound {
+				_ = resp.Body.Close()
+				if len(all) > 0 {
+					stopPaging = true
+					break pages
+				}
+				return nil, ErrChartNotFound
+			}
+			if resp.StatusCode != http.StatusOK {
+				_ = resp.Body.Close()
+				return nil, fmt.Errorf("oci tags status: %s", resp.Status)
+			}
+
+			body, err = io.ReadAll(resp.Body)
 			_ = resp.Body.Close()
-			return nil, fmt.Errorf("oci tags status: %s", resp.Status)
+			if err != nil {
+				return nil, fmt.Errorf("read oci tags body: %w", err)
+			}
+			linkHeader = resp.Header.Get("Link")
+			break pages
 		}
 
-		body, err := io.ReadAll(resp.Body)
-		_ = resp.Body.Close()
-		if err != nil {
-			return nil, fmt.Errorf("read oci tags body: %w", err)
+		if stopPaging {
+			break
+		}
+		if body == nil {
+			return nil, fmt.Errorf("oci tags: exhausted auth retries for %s", nextURL)
 		}
 
 		var payload struct {
@@ -167,7 +217,7 @@ func (r *OCIResolver) fetchTags(ctx context.Context, host, repository string) ([
 		}
 		all = append(all, payload.Tags...)
 
-		nextURL = resolveNextPageURL(startURL, resp.Header.Get("Link"))
+		nextURL = resolveNextPageURL(startURL, linkHeader)
 	}
 
 	if len(all) == 0 {
@@ -218,10 +268,11 @@ func resolveNextPageURL(currentURL, linkHeader string) string {
 	return ""
 }
 
-// negotiateAnonymousToken parses the WWW-Authenticate header from a 401 and
-// requests an anonymous Bearer token. Works for ghcr.io and Docker Hub.
-func (r *OCIResolver) negotiateAnonymousToken(ctx context.Context, resp *http.Response, host, repository string) (string, error) {
-	challenge := resp.Header.Get("WWW-Authenticate")
+// negotiateBearerToken parses the WWW-Authenticate challenge, requests a Bearer
+// token from the realm, and optionally sends HTTP Basic credentials when
+// hostAuth is configured for this registry (private OCI).
+func (r *OCIResolver) negotiateBearerToken(ctx context.Context, wwwAuthenticate, host, repository string) (string, error) {
+	challenge := wwwAuthenticate
 	realm, service, scope := parseAuthChallenge(challenge)
 
 	if realm == "" {
@@ -250,6 +301,9 @@ func (r *OCIResolver) negotiateAnonymousToken(ctx context.Context, resp *http.Re
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, tokenURL, nil)
 	if err != nil {
 		return "", fmt.Errorf("build token request: %w", err)
+	}
+	if c, ok := registryauth.Lookup(r.hostAuth, host); ok && c.Username != "" {
+		req.SetBasicAuth(c.Username, c.Password)
 	}
 
 	tokResp, err := r.client.Do(req)

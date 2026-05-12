@@ -48,7 +48,7 @@ func New(cfg config.Config) (*Server, error) {
 		WriteTimeout: cfg.WriteTimeout,
 	}
 
-	clients, err := kube.NewClients(cfg.KubeconfigPath)
+	clients, err := kube.NewClients(cfg.KubeconfigPath, cfg.KubeClientQPS, cfg.KubeClientBurst)
 	if err != nil {
 		return nil, fmt.Errorf("initialize kubernetes clients: %w", err)
 	}
@@ -59,8 +59,10 @@ func New(cfg config.Config) (*Server, error) {
 	)
 	discoveryManager := discovery.NewManager(composite, cfg.ReconcileEvery)
 	versionEngine := version.NewEngine()
-	repoResolver := resolver.NewRepositoryResolver(nil, cfg.RepoCacheTTL)
-	ociResolver := resolver.NewOCIResolver(nil, cfg.RepoCacheTTL)
+
+	httpUpstream := &http.Client{Timeout: 10 * time.Second}
+	repoResolver := resolver.NewRepositoryResolver(httpUpstream, cfg.RepoCacheTTL, cfg.RegistryCredentials)
+	ociResolver := resolver.NewOCIResolver(httpUpstream, cfg.RepoCacheTTL, cfg.RegistryCredentials)
 	catalogBuilder := catalog.NewBuilder(clients.Dynamic, clients.Kubernetes, repoResolver, ociResolver, versionEngine, cfg.ResolveWorkers, cfg.RepoOverrides)
 
 	return &Server{
