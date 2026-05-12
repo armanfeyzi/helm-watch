@@ -52,6 +52,7 @@ Implemented metrics:
 - `helm_chart_info`
 - `helm_chart_outdated`
 - `helm_chart_version_lag`
+- `helm_chart_unknown`
 - `helm_watch_reconcile_duration_seconds`
 - `helm_watch_reconcile_errors_total`
 

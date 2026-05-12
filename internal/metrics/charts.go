@@ -11,6 +11,7 @@ type ChartMetrics struct {
 	infoGauge     *prometheus.GaugeVec
 	outdatedGauge *prometheus.GaugeVec
 	lagGauge      *prometheus.GaugeVec
+	unknownGauge  *prometheus.GaugeVec
 
 	reconcileDuration prometheus.Gauge
 	reconcileErrors   prometheus.Counter
@@ -39,6 +40,13 @@ func NewChartMetrics(reg prometheus.Registerer) *ChartMetrics {
 			},
 			[]string{"app", "namespace", "chart"},
 		),
+		unknownGauge: prometheus.NewGaugeVec(
+			prometheus.GaugeOpts{
+				Name: "helm_chart_unknown",
+				Help: "Whether chart version status is unknown (1) or known (0).",
+			},
+			[]string{"app", "namespace", "chart"},
+		),
 		reconcileDuration: prometheus.NewGauge(
 			prometheus.GaugeOpts{
 				Name: "helm_watch_reconcile_duration_seconds",
@@ -53,7 +61,7 @@ func NewChartMetrics(reg prometheus.Registerer) *ChartMetrics {
 		),
 	}
 
-	reg.MustRegister(m.infoGauge, m.outdatedGauge, m.lagGauge, m.reconcileDuration, m.reconcileErrors)
+	reg.MustRegister(m.infoGauge, m.outdatedGauge, m.lagGauge, m.unknownGauge, m.reconcileDuration, m.reconcileErrors)
 	return m
 }
 
@@ -61,6 +69,7 @@ func (m *ChartMetrics) Publish(workloads []model.WorkloadRecord, chartRecords []
 	m.infoGauge.Reset()
 	m.outdatedGauge.Reset()
 	m.lagGauge.Reset()
+	m.unknownGauge.Reset()
 
 	workloadMap := make(map[string]model.WorkloadRecord, len(workloads))
 	for _, w := range workloads {
@@ -93,6 +102,11 @@ func (m *ChartMetrics) Publish(workloads []model.WorkloadRecord, chartRecords []
 
 		m.outdatedGauge.WithLabelValues(workload.AppName, workload.Namespace, emptyToUnknown(rec.ChartName)).Set(outdated)
 		m.lagGauge.WithLabelValues(workload.AppName, workload.Namespace, emptyToUnknown(rec.ChartName)).Set(result.Lag)
+		unknown := 0.0
+		if result.Status == model.VersionStatusUnknown {
+			unknown = 1
+		}
+		m.unknownGauge.WithLabelValues(workload.AppName, workload.Namespace, emptyToUnknown(rec.ChartName)).Set(unknown)
 	}
 }
 
