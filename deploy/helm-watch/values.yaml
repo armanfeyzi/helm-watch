@@ -49,6 +49,9 @@ serviceMonitor:
   namespace: monitoring
   interval: 30s
   scrapeTimeout: 10s
+  # Must be true so Prometheus keeps helm_chart_* `namespace` (workload target
+  # ns). If false, kube SD overwrites it with the helm-watch pod namespace.
+  honorLabels: true
   # Must match your Prometheus CR serviceMonitorSelector (kube-prometheus-stack: usually release: <prometheus-helm-release>).
   additionalLabels:
     release: prometheus
