@@ -4,6 +4,8 @@ Helm Watch is a Kubernetes observability service that gives teams real-time visi
 
 It discovers Helm-based workloads in-cluster, resolves current deployed versions, compares them with upstream chart versions, and exposes the result as Prometheus metrics for Grafana dashboards and alerts.
 
+![Helm Watch Grafana Dashboard](docs/assets/dashboard.png)
+
 ## Why Helm Watch
 
 In most clusters, Helm charts are deployed through different paths:
