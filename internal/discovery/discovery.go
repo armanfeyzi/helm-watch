@@ -43,7 +43,7 @@ func (c *Composite) Discover(ctx context.Context) ([]model.WorkloadRecord, error
 		return compareID(a.ID, b.ID)
 	})
 
-	return deduplicate(out), nil
+	return deduplicateByApp(deduplicate(out)), nil
 }
 
 func compareID(a, b string) int {
@@ -71,6 +71,54 @@ func deduplicate(in []model.WorkloadRecord) []model.WorkloadRecord {
 		seen[rec.ID] = struct{}{}
 		out = append(out, rec)
 	}
+	return out
+}
+
+// sourceTypePriority returns a lower number for higher-priority source types.
+// ArgoCD is preferred because its Application CR carries authoritative chart
+// source information (repoURL, chart name, targetRevision), whereas a Helm
+// release secret/configmap may only expose what is baked into the chart
+// metadata and can disagree on the repo URL.
+func sourceTypePriority(s model.SourceType) int {
+	switch s {
+	case model.SourceTypeArgoCDApplication:
+		return 0
+	case model.SourceTypeHelmReleaseSecret:
+		return 1
+	case model.SourceTypeHelmReleaseCM:
+		return 2
+	default:
+		return 3
+	}
+}
+
+// deduplicateByApp removes duplicate workloads that represent the same logical
+// application (same Namespace + AppName) discovered by multiple sources. When
+// a collision occurs the record with the highest source-type priority wins so
+// that each (namespace, app) pair maps to exactly one ChartRecord and the
+// narrow-label gauges (helm_chart_outdated, helm_chart_unknown) stay in sync
+// with the wide-label gauge (helm_chart_info).
+func deduplicateByApp(in []model.WorkloadRecord) []model.WorkloadRecord {
+	if len(in) == 0 {
+		return in
+	}
+
+	type appKey struct{ namespace, app string }
+	best := make(map[appKey]model.WorkloadRecord, len(in))
+	for _, rec := range in {
+		k := appKey{rec.Namespace, rec.AppName}
+		if existing, ok := best[k]; !ok || sourceTypePriority(rec.SourceType) < sourceTypePriority(existing.SourceType) {
+			best[k] = rec
+		}
+	}
+
+	out := make([]model.WorkloadRecord, 0, len(best))
+	for _, rec := range best {
+		out = append(out, rec)
+	}
+	slices.SortFunc(out, func(a, b model.WorkloadRecord) int {
+		return compareID(a.ID, b.ID)
+	})
 	return out
 }
 
