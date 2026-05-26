@@ -278,6 +278,7 @@
           "mode": "single",
           "sort": "none"
         },
+        "xField": "namespace",
         "xTickLabelRotation": 0,
         "xTickLabelSpacing": 200
       },
@@ -376,6 +377,7 @@
           "mode": "single",
           "sort": "none"
         },
+        "xField": "source kind",
         "xTickLabelRotation": 0,
         "xTickLabelSpacing": 200
       },
@@ -387,7 +389,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by (source_kind) (helm_chart_unknown{namespace=~\"$namespace\"})",
+          "expr": "count by (source_kind) (helm_chart_info{namespace=~\"$namespace\", status=\"unknown\"})",
           "format": "table",
           "instant": true,
           "legendFormat": "__auto",
@@ -401,7 +403,10 @@
           "id": "organize",
           "options": {
             "excludeByName": { "Time": true },
-            "renameByName": { "Value": "unknown" }
+            "renameByName": {
+              "Value": "unknown",
+              "source_kind": "source kind"
+            }
           }
         }
       ],
@@ -412,73 +417,42 @@
         "type": "prometheus",
         "uid": "prometheus"
       },
-      "description": "Outdated count limited to the namespace(s) selected above. Use the dropdown to drill into a specific team or environment and compare against the global view on the left.",
+      "description": "Outdated charts in the namespace(s) selected above — one row per app/chart. Compare against the global namespace summary on the left; this panel shows which workloads need upgrading.",
       "fieldConfig": {
         "defaults": {
-          "color": { "mode": "palette-classic" },
           "custom": {
-            "axisBorderShow": false,
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "fillOpacity": 40,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "lineWidth": 1,
-            "scaleDistribution": { "type": "linear" },
-            "thresholdsStyle": { "mode": "off" }
+            "align": "auto",
+            "cellOptions": { "type": "auto" },
+            "footer": { "reducers": [] },
+            "inspect": false
           },
-          "fieldMinMax": false,
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
             "steps": [
               { "color": "green", "value": 0 },
-              { "color": "#EAB839", "value": 1 },
-              { "color": "semi-dark-orange", "value": 2 },
-              { "color": "dark-orange", "value": 3 },
-              { "color": "red", "value": 4 },
-              { "color": "semi-dark-red", "value": 5 },
-              { "color": "dark-red", "value": 6 }
+              { "color": "red", "value": 1 }
             ]
-          }
+          },
+          "unit": "short"
         },
         "overrides": [
           {
-            "matcher": { "id": "byName", "options": "outdated" },
-            "properties": []
+            "matcher": { "id": "byName", "options": "Value" },
+            "properties": [
+              { "id": "custom.hideFrom.viz", "value": true }
+            ]
           }
         ]
       },
       "gridPos": { "h": 8, "w": 24, "x": 0, "y": 16 },
       "id": 10,
       "options": {
-        "barRadius": 0,
-        "barWidth": 0.97,
-        "colorByField": "outdated",
-        "fullHighlight": false,
-        "groupWidth": 0.7,
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "orientation": "horizontal",
-        "showValue": "always",
-        "stacking": "normal",
-        "tooltip": {
-          "hideZeros": false,
-          "mode": "single",
-          "sort": "none"
-        },
-        "xTickLabelRotation": 0,
-        "xTickLabelSpacing": 200
+        "cellHeight": "sm",
+        "showHeader": true,
+        "sortBy": [
+          { "desc": false, "displayName": "namespace" }
+        ]
       },
       "pluginVersion": "12.4.0",
       "targets": [
@@ -488,7 +462,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by (namespace) (helm_chart_outdated{namespace=~\"$namespace\"})",
+          "expr": "max by (namespace, app, chart, current_version, latest_version) (helm_chart_info{namespace=~\"$namespace\", status=\"outdated\"})",
           "format": "table",
           "instant": true,
           "legendFormat": "__auto",
@@ -496,17 +470,30 @@
           "refId": "A"
         }
       ],
-      "title": "Outdated Charts by Namespace — Filtered",
+      "title": "Outdated Charts — Filtered Detail",
       "transformations": [
         {
           "id": "organize",
           "options": {
-            "excludeByName": { "Time": true },
-            "renameByName": { "Value": "outdated" }
+            "excludeByName": {
+              "Time": true,
+              "Value": true
+            },
+            "indexByName": {
+              "app": 1,
+              "chart": 2,
+              "current_version": 3,
+              "latest_version": 4,
+              "namespace": 0
+            },
+            "renameByName": {
+              "current_version": "current ver",
+              "latest_version": "latest version"
+            }
           }
         }
       ],
-      "type": "barchart"
+      "type": "table"
     },
     {
       "datasource": {
