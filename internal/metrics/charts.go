@@ -82,6 +82,11 @@ func (m *ChartMetrics) Publish(workloads []model.WorkloadRecord, chartRecords []
 			continue
 		}
 
+		// Derive status from the version engine so that helm_chart_info.status
+		// is always a valid enum member and stays consistent with the binary
+		// gauges below, regardless of what the catalog set in rec.Status.
+		result := engine.Compare(rec.CurrentVersion, rec.LatestVersion)
+
 		m.infoGauge.WithLabelValues(
 			workload.AppName,
 			workload.Namespace,
@@ -91,10 +96,9 @@ func (m *ChartMetrics) Publish(workloads []model.WorkloadRecord, chartRecords []
 			emptyToUnknown(rec.CurrentVersion),
 			emptyToUnknown(rec.LatestVersion),
 			string(workload.DeploymentType),
-			string(rec.Status),
+			string(result.Status),
 		).Set(1)
 
-		result := engine.Compare(rec.CurrentVersion, rec.LatestVersion)
 		outdated := 0.0
 		if result.Status == model.VersionStatusOutdated {
 			outdated = 1
