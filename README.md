@@ -6,6 +6,8 @@ It discovers Helm-based workloads in-cluster, resolves current deployed versions
 
 ![Helm Watch Grafana Dashboard](docs/assets/dashboard.png)
 
+Summary stats, filtered outdated detail, and the full chart versions matrix. Import from [`deploy/monitoring/grafana-dashboard.json`](deploy/monitoring/grafana-dashboard.json).
+
 ## Why Helm Watch
 
 In most clusters, Helm charts are deployed through different paths:
