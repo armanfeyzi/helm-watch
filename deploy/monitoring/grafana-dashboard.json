@@ -1,259 +1,491 @@
 {
-  "id": null,
-  "uid": "helm-watch-overview",
-  "title": "Helm Watch Overview",
-  "timezone": "browser",
-  "schemaVersion": 39,
-  "version": 3,
-  "refresh": "30s",
-  "style": "dark",
-  "tags": [
-    "helm-watch",
-    "kubernetes",
-    "helm"
-  ],
-  "__inputs": [
-    {
-      "name": "DS_PROMETHEUS",
-      "label": "Prometheus",
-      "description": "",
-      "type": "datasource",
-      "pluginId": "prometheus",
-      "pluginName": "Prometheus"
-    }
-  ],
-  "templating": {
+  "annotations": {
     "list": [
       {
-        "name": "namespace",
-        "type": "query",
+        "builtIn": 1,
         "datasource": {
-          "type": "prometheus",
-          "uid": "${DS_PROMETHEUS}"
+          "type": "grafana",
+          "uid": "-- Grafana --"
         },
-        "query": "label_values(helm_chart_info, namespace)",
-        "includeAll": true,
-        "allValue": ".+",
-        "multi": true,
-        "refresh": 2,
-        "current": {
-          "selected": true,
-          "text": "All",
-          "value": "$__all"
-        }
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
       }
     ]
   },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "links": [],
   "panels": [
     {
-      "type": "stat",
-      "title": "Outdated Charts",
-      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 0 },
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "prometheus"
       },
+      "description": "Total Helm charts being tracked across the selected namespace(s). Increases as new workloads are discovered.",
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": 0 },
+              { "color": "red", "value": 80 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 0 },
+      "id": 2,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "12.4.0",
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "count(helm_chart_info{namespace=~\"$namespace\"})",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Tracked Charts",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Charts where a newer version is available in the upstream repository. Drill into the Chart Versions Matrix below for details.",
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": 0 },
+              { "color": "red", "value": 1 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 6, "w": 6, "x": 6, "y": 0 },
+      "id": 1,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "12.4.0",
       "targets": [
         {
           "expr": "sum(helm_chart_outdated{namespace=~\"$namespace\"})",
           "refId": "A"
         }
       ],
+      "title": "Outdated Charts",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Charts confirmed to be running the latest available version in the selected namespace(s).",
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": 0 },
+              { "color": "red", "value": 80 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 6, "w": 6, "x": 12, "y": 0 },
+      "id": 9,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
         "justifyMode": "center",
         "orientation": "auto",
+        "percentChangeColorMode": "standard",
         "reduceOptions": {
           "calcs": ["lastNotNull"],
           "fields": "",
           "values": false
-        }
-      }
-    },
-    {
-      "type": "stat",
-      "title": "Tracked Charts",
-      "gridPos": { "h": 4, "w": 4, "x": 4, "y": 0 },
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
       },
+      "pluginVersion": "12.4.0",
       "targets": [
         {
-          "expr": "count(helm_chart_info{namespace=~\"$namespace\"})",
+          "editorMode": "code",
+          "expr": "count(helm_chart_info{namespace=~\"$namespace\", status=\"up_to_date\"})",
+          "range": true,
           "refId": "A"
         }
       ],
+      "title": "Up-to-date Charts",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Charts where the latest version could not be resolved (auth failure, unsupported repo, git source, etc.). See the Unknown by Source Kind panel below to diagnose the root cause.",
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": 0 },
+              { "color": "light-orange", "value": 1 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 6, "w": 6, "x": 18, "y": 0 },
+      "id": 3,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
         "justifyMode": "center",
         "orientation": "auto",
+        "percentChangeColorMode": "standard",
         "reduceOptions": {
           "calcs": ["lastNotNull"],
           "fields": "",
           "values": false
-        }
-      }
-    },
-    {
-      "type": "stat",
-      "title": "Unknown Charts",
-      "gridPos": { "h": 4, "w": 4, "x": 8, "y": 0 },
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
       },
+      "pluginVersion": "12.4.0",
       "targets": [
         {
           "expr": "sum(helm_chart_unknown{namespace=~\"$namespace\"})",
           "refId": "A"
         }
       ],
-      "options": {
-        "colorMode": "value",
-        "graphMode": "none",
-        "justifyMode": "center",
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": ["lastNotNull"],
-          "fields": "",
-          "values": false
-        }
-      }
+      "title": "Unknown Charts",
+      "type": "stat"
     },
     {
-      "type": "table",
-      "title": "Chart Versions Matrix",
-      "gridPos": { "h": 12, "w": 24, "x": 0, "y": 12 },
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "prometheus"
       },
-      "targets": [
-        {
-          "expr": "max by (app, namespace, chart, repo, source_kind, current_version, latest_version, deployment_type, status) (helm_chart_info{namespace=~\"$namespace\"})",
-          "format": "table",
-          "instant": true,
-          "refId": "A"
-        }
-      ],
+      "description": "Global view — shows all namespaces regardless of the namespace filter above. Use this as a stable reference to spot outlier namespaces even when the filter is narrowed down.",
       "fieldConfig": {
         "defaults": {
+          "color": { "mode": "palette-classic" },
           "custom": {
-            "align": "auto",
-            "cellOptions": {
-              "type": "auto"
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "fillOpacity": 40,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
             },
-            "inspect": false
+            "lineWidth": 1,
+            "scaleDistribution": { "type": "linear" },
+            "thresholdsStyle": { "mode": "off" }
+          },
+          "fieldMinMax": false,
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": 0 },
+              { "color": "#EAB839", "value": 1 },
+              { "color": "semi-dark-orange", "value": 2 },
+              { "color": "dark-orange", "value": 3 },
+              { "color": "red", "value": 4 },
+              { "color": "semi-dark-red", "value": 5 },
+              { "color": "dark-red", "value": 6 }
+            ]
           }
         },
         "overrides": [
           {
-            "matcher": {
-              "id": "byName",
-              "options": "Value"
-            },
-            "properties": [
-              {
-                "id": "custom.hidden",
-                "value": true
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "status"
-            },
-            "properties": [
-              {
-                "id": "custom.width",
-                "value": 130
-              },
-              {
-                "id": "custom.cellOptions",
-                "value": {
-                  "type": "color-background"
-                }
-              },
-              {
-                "id": "mappings",
-                "value": [
-                  {
-                    "type": "value",
-                    "options": {
-                      "up_to_date": {
-                        "color": "dark-green",
-                        "text": "up to date"
-                      },
-                      "outdated": {
-                        "color": "dark-red",
-                        "text": "outdated"
-                      },
-                      "unknown": {
-                        "color": "dark-yellow",
-                        "text": "unknown"
-                      }
-                    }
-                  }
-                ]
-              }
-            ]
+            "matcher": { "id": "byName", "options": "outdated" },
+            "properties": []
           }
         ]
       },
+      "gridPos": { "h": 10, "w": 14, "x": 0, "y": 6 },
+      "id": 5,
       "options": {
-        "showHeader": true,
-        "cellHeight": "sm",
-        "footer": {
-          "show": false,
-          "reducers": []
-        }
+        "barRadius": 0,
+        "barWidth": 0.97,
+        "colorByField": "outdated",
+        "fullHighlight": false,
+        "groupWidth": 0.7,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "orientation": "horizontal",
+        "showValue": "always",
+        "stacking": "normal",
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        },
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 200
       },
-      "transformations": [
-        {
-          "id": "organize",
-          "options": {
-            "excludeByName": {
-              "Time": true,
-              "Value": true,
-              "namespace": true
-            },
-            "indexByName": {
-              "status": 0,
-              "app": 1,
-              "current_version": 2,
-              "latest_version": 3,
-              "chart": 4,
-              "repo": 5,
-              "deployment_type": 6,
-              "source_kind": 7
-            },
-            "renameByName": {
-              "current_version": "current ver",
-              "latest_version": "latest version",
-              "deployment_type": "deployment type",
-              "source_kind": "source kind"
-            }
-          }
-        }
-      ]
-    },
-    {
-      "type": "table",
-      "title": "Outdated Charts by Namespace",
-      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 4 },
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
-      },
+      "pluginVersion": "12.4.0",
       "targets": [
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum by (namespace) (helm_chart_outdated)",
+          "format": "table",
+          "instant": true,
+          "legendFormat": "__auto",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "Outdated Charts by Namespace — All",
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": { "Time": true },
+            "renameByName": { "Value": "outdated" }
+          }
+        }
+      ],
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Unknown status broken down by repository type. High oci_registry counts indicate auth or registry connectivity issues. git sources cannot be version-resolved and will always appear as unknown.",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "fillOpacity": 40,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineWidth": 1,
+            "scaleDistribution": { "type": "linear" },
+            "thresholdsStyle": { "mode": "off" }
+          },
+          "fieldMinMax": false,
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": 0 },
+              { "color": "light-orange", "value": 1 },
+              { "color": "semi-dark-orange", "value": 3 },
+              { "color": "dark-orange", "value": 6 }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "unknown" },
+            "properties": []
+          }
+        ]
+      },
+      "gridPos": { "h": 10, "w": 10, "x": 14, "y": 6 },
+      "id": 11,
+      "options": {
+        "barRadius": 0,
+        "barWidth": 0.97,
+        "colorByField": "unknown",
+        "fullHighlight": false,
+        "groupWidth": 0.7,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "orientation": "horizontal",
+        "showValue": "always",
+        "stacking": "normal",
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        },
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 200
+      },
+      "pluginVersion": "12.4.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum by (source_kind) (helm_chart_unknown{namespace=~\"$namespace\"})",
+          "format": "table",
+          "instant": true,
+          "legendFormat": "__auto",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "Unknown Charts by Source Kind",
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": { "Time": true },
+            "renameByName": { "Value": "unknown" }
+          }
+        }
+      ],
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Outdated count limited to the namespace(s) selected above. Use the dropdown to drill into a specific team or environment and compare against the global view on the left.",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "fillOpacity": 40,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineWidth": 1,
+            "scaleDistribution": { "type": "linear" },
+            "thresholdsStyle": { "mode": "off" }
+          },
+          "fieldMinMax": false,
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": 0 },
+              { "color": "#EAB839", "value": 1 },
+              { "color": "semi-dark-orange", "value": 2 },
+              { "color": "dark-orange", "value": 3 },
+              { "color": "red", "value": 4 },
+              { "color": "semi-dark-red", "value": 5 },
+              { "color": "dark-red", "value": 6 }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "outdated" },
+            "properties": []
+          }
+        ]
+      },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 16 },
+      "id": 10,
+      "options": {
+        "barRadius": 0,
+        "barWidth": 0.97,
+        "colorByField": "outdated",
+        "fullHighlight": false,
+        "groupWidth": 0.7,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "orientation": "horizontal",
+        "showValue": "always",
+        "stacking": "normal",
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        },
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 200
+      },
+      "pluginVersion": "12.4.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
           },
           "editorMode": "code",
           "expr": "sum by (namespace) (helm_chart_outdated{namespace=~\"$namespace\"})",
@@ -264,105 +496,321 @@
           "refId": "A"
         }
       ],
+      "title": "Outdated Charts by Namespace — Filtered",
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": { "Time": true },
+            "renameByName": { "Value": "outdated" }
+          }
+        }
+      ],
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Full inventory of tracked charts with current and latest version details. Status is colour-coded: green = up to date, red = outdated, yellow = unknown. Use the namespace filter above to focus on a specific environment.",
       "fieldConfig": {
         "defaults": {
           "custom": {
             "align": "auto",
-            "cellOptions": {
-              "type": "auto"
-            },
+            "cellOptions": { "type": "auto" },
+            "footer": { "reducers": [] },
             "inspect": false
           },
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              { "color": "green", "value": null },
-              { "color": "orange", "value": 1 }
+              { "color": "green", "value": 0 },
+              { "color": "red", "value": 80 }
             ]
-          },
-          "unit": "short"
+          }
         },
         "overrides": [
           {
-            "matcher": { "id": "byName", "options": "outdated" },
+            "matcher": { "id": "byName", "options": "Value" },
             "properties": [
+              { "id": "custom.hideFrom.viz", "value": true }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "status" },
+            "properties": [
+              { "id": "custom.width", "value": 139 },
               {
                 "id": "custom.cellOptions",
-                "value": {
-                  "type": "color-background"
-                }
+                "value": { "type": "color-background" }
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "options": {
+                      "outdated": { "color": "dark-red", "text": "outdated" },
+                      "unknown": { "color": "dark-yellow", "text": "unknown" },
+                      "up_to_date": { "color": "dark-green", "text": "up to date" }
+                    },
+                    "type": "value"
+                  }
+                ]
               }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "latest version" },
+            "properties": [
+              { "id": "custom.width", "value": 158 }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "current ver" },
+            "properties": [
+              { "id": "custom.width", "value": 190 }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "app" },
+            "properties": [
+              { "id": "custom.width", "value": 214 }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "chart" },
+            "properties": [
+              { "id": "custom.width", "value": 247 }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "deployment type" },
+            "properties": [
+              { "id": "custom.width", "value": 196 }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "repo" },
+            "properties": [
+              { "id": "custom.width", "value": 434 }
             ]
           }
         ]
       },
+      "gridPos": { "h": 15, "w": 24, "x": 0, "y": 24 },
+      "id": 4,
       "options": {
-        "showHeader": true,
         "cellHeight": "sm",
-        "footer": {
-          "show": false,
-          "reducers": [],
-          "countRows": false
-        },
+        "showHeader": true,
         "sortBy": [
-          {
-            "displayName": "outdated",
-            "desc": true
-          }
+          { "desc": false, "displayName": "app" }
         ]
       },
+      "pluginVersion": "12.4.0",
+      "targets": [
+        {
+          "expr": "max by (app, namespace, chart, repo, source_kind, current_version, latest_version, deployment_type, status) (helm_chart_info{namespace=~\"$namespace\"})",
+          "format": "table",
+          "instant": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Chart Versions Matrix",
       "transformations": [
         {
           "id": "organize",
           "options": {
             "excludeByName": {
-              "Time": true
+              "Time": true,
+              "Value": true,
+              "namespace": true
+            },
+            "indexByName": {
+              "app": 1,
+              "chart": 4,
+              "current_version": 2,
+              "deployment_type": 6,
+              "latest_version": 3,
+              "repo": 5,
+              "source_kind": 7,
+              "status": 0
             },
             "renameByName": {
-              "Value": "outdated"
+              "current_version": "current ver",
+              "deployment_type": "deployment type",
+              "latest_version": "latest version",
+              "source_kind": "source kind"
             }
           }
         }
-      ]
+      ],
+      "type": "table"
     },
     {
-      "type": "table",
-      "title": "Unknown Charts by Namespace",
-      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 30 },
       "datasource": {
         "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
+        "uid": "prometheus"
       },
+      "description": "Duration of the latest reconcile cycle in seconds. Spikes indicate slow upstream registry or index.yaml responses — check resolver logs for timeouts.",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": { "type": "linear" },
+            "showPoints": "auto",
+            "showValues": false,
+            "spanNulls": false,
+            "stacking": { "group": "A", "mode": "none" },
+            "thresholdsStyle": { "mode": "off" }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": 0 },
+              { "color": "red", "value": 80 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 6, "w": 12, "x": 0, "y": 39 },
+      "id": 7,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.4.0",
       "targets": [
         {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
-          },
-          "editorMode": "code",
-          "expr": "sum by (namespace) (helm_chart_unknown{namespace=~\"$namespace\"})",
-          "format": "table",
-          "instant": true,
-          "legendFormat": "__auto",
-          "range": false,
+          "expr": "helm_watch_reconcile_duration_seconds",
           "refId": "A"
         }
       ],
+      "title": "Reconcile Duration (seconds)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Rate of errors during the reconcile pipeline. Non-zero values indicate failed upstream lookups — inspect helm-watch logs for resolver or auth errors.",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": { "type": "linear" },
+            "showPoints": "auto",
+            "showValues": false,
+            "spanNulls": false,
+            "stacking": { "group": "A", "mode": "none" },
+            "thresholdsStyle": { "mode": "off" }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": 0 },
+              { "color": "red", "value": 80 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 6, "w": 12, "x": 12, "y": 39 },
+      "id": 8,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.4.0",
+      "targets": [
+        {
+          "expr": "rate(helm_watch_reconcile_errors_total[5m])",
+          "refId": "A"
+        }
+      ],
+      "title": "Reconcile Errors (rate)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Count of unresolvable charts per namespace. Pairs with the Unknown by Source Kind panel above to identify which namespaces and repository types are affected.",
       "fieldConfig": {
         "defaults": {
           "custom": {
             "align": "auto",
-            "cellOptions": {
-              "type": "auto"
-            },
+            "cellOptions": { "type": "auto" },
+            "footer": { "reducers": [] },
             "inspect": false
           },
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              { "color": "green", "value": null },
+              { "color": "green", "value": 0 },
               { "color": "yellow", "value": 1 }
             ]
           },
@@ -374,76 +822,89 @@
             "properties": [
               {
                 "id": "custom.cellOptions",
-                "value": {
-                  "type": "color-background"
-                }
+                "value": { "type": "color-background" }
               }
             ]
           }
         ]
       },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 45 },
+      "id": 6,
       "options": {
-        "showHeader": true,
         "cellHeight": "sm",
-        "footer": {
-          "show": false,
-          "reducers": [],
-          "countRows": false
-        },
+        "showHeader": true,
         "sortBy": [
-          {
-            "displayName": "unknown",
-            "desc": true
-          }
+          { "desc": true, "displayName": "unknown" }
         ]
       },
+      "pluginVersion": "12.4.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum by (namespace) (helm_chart_unknown{namespace=~\"$namespace\"})",
+          "format": "table",
+          "instant": true,
+          "legendFormat": "__auto",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "Unknown Charts by Namespace",
       "transformations": [
         {
           "id": "organize",
           "options": {
-            "excludeByName": {
-              "Time": true
-            },
-            "renameByName": {
-              "Value": "unknown"
-            }
+            "excludeByName": { "Time": true },
+            "renameByName": { "Value": "unknown" }
           }
         }
-      ]
-    },
-    {
-      "type": "timeseries",
-      "title": "Reconcile Duration (seconds)",
-      "gridPos": { "h": 6, "w": 12, "x": 0, "y": 24 },
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
-      },
-      "targets": [
-        {
-          "expr": "helm_watch_reconcile_duration_seconds",
-          "refId": "A"
-        }
-      ]
-    },
-    {
-      "type": "timeseries",
-      "title": "Reconcile Errors (rate)",
-      "gridPos": { "h": 6, "w": 12, "x": 12, "y": 24 },
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
-      },
-      "targets": [
-        {
-          "expr": "rate(helm_watch_reconcile_errors_total[5m])",
-          "refId": "A"
-        }
-      ]
+      ],
+      "type": "table"
     }
   ],
+  "preload": false,
+  "refresh": "30s",
+  "schemaVersion": 42,
+  "tags": [
+    "helm-watch",
+    "kubernetes",
+    "helm"
+  ],
+  "templating": {
+    "list": [
+      {
+        "allValue": ".+",
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "includeAll": true,
+        "multi": true,
+        "name": "namespace",
+        "options": [],
+        "query": "label_values(helm_chart_info, namespace)",
+        "refresh": 2,
+        "regexApplyTo": "value",
+        "type": "query"
+      }
+    ]
+  },
   "time": {
     "from": "now-6h",
     "to": "now"
-  }
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Helm Watch Overview2",
+  "uid": "helm-watch-overview2",
+  "version": 14,
+  "weekStart": ""
 }
