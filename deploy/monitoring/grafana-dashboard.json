@@ -1177,8 +1177,8 @@
   },
   "timepicker": {},
   "timezone": "browser",
-  "title": "Helm Watch Overview2",
-  "uid": "helm-watch-overview2",
+  "title": "Helm Watch Overview",
+  "uid": "helm-watch-overview",
   "version": 17,
   "weekStart": ""
 }
