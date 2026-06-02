@@ -1,6 +1,5 @@
 # CI for helm-watch.
-# Security scans (gitleaks, Semgrep, Trivy image) run in report-only mode until ARM-6 enables gates.
-# See docs/ci-security.md.
+# Optional security jobs (gitleaks, Semgrep, Trivy) run in report-only mode; see docs/ci-security.md.
 
 name: CI
 
@@ -101,7 +100,7 @@ jobs:
           path: dist/helm-watch-image.tar
 
   security-static:
-    name: Security — secrets & SAST (report-only)
+    name: Security — secrets (report-only)
     runs-on: ubuntu-latest
 
     steps:
@@ -147,7 +146,7 @@ jobs:
         run: docker load -i dist/helm-watch-image.tar
 
       - name: Trivy image scan (table)
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
         with:
           image-ref: helm-watch:ci
           format: table
@@ -155,7 +154,7 @@ jobs:
           exit-code: "0"
 
       - name: Trivy image scan (SARIF report)
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
         with:
           image-ref: helm-watch:ci
           format: sarif
