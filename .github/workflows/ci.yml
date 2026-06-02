@@ -1,3 +1,7 @@
+# CI for helm-watch.
+# Security scans (gitleaks, Semgrep, Trivy image) run in report-only mode until ARM-6 enables gates.
+# See docs/ci-security.md.
+
 name: CI
 
 on:
@@ -95,3 +99,67 @@ jobs:
         with:
           name: helm-watch-image-tar
           path: dist/helm-watch-image.tar
+
+  security-static:
+    name: Security — secrets & SAST (report-only)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout (full history for gitleaks)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Secret scan (gitleaks)
+        id: gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true
+
+      - name: SAST (Semgrep)
+        uses: semgrep/semgrep-action@v1
+        with:
+          config: >-
+            p/golang
+            p/security-audit
+        continue-on-error: true
+
+  container-security:
+    name: Security — container image (report-only)
+    needs: test-and-build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download image artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: helm-watch-image-tar
+          path: dist
+
+      - name: Load image
+        run: docker load -i dist/helm-watch-image.tar
+
+      - name: Trivy image scan (table)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: helm-watch:ci
+          format: table
+          severity: CRITICAL,HIGH,MEDIUM,LOW,UNKNOWN
+          exit-code: "0"
+
+      - name: Trivy image scan (SARIF report)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: helm-watch:ci
+          format: sarif
+          output: trivy-image.sarif
+          severity: CRITICAL,HIGH,MEDIUM,LOW,UNKNOWN
+          exit-code: "0"
+
+      - name: Upload Trivy SARIF
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-image-sarif
+          path: trivy-image.sarif
+          if-no-files-found: warn

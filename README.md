@@ -179,6 +179,7 @@ GitHub Actions workflow at `.github/workflows/ci.yml`:
 - builds Linux binaries
 - builds Docker image
 - uploads artifacts (binaries + Docker image tar)
+- **report-only security scans** (gitleaks, Semgrep, Trivy image) — see [`docs/ci-security.md`](docs/ci-security.md)
 
 Tag-based release workflow at `.github/workflows/release.yml`:
 
