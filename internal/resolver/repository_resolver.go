@@ -96,7 +96,7 @@ func (r *RepositoryResolver) RefreshRepoIndex(ctx context.Context, repoURL strin
 	if err != nil {
 		return model.RepoCacheEntry{}, fmt.Errorf("fetch index.yaml: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return model.RepoCacheEntry{}, fmt.Errorf("fetch index.yaml status: %s", resp.Status)

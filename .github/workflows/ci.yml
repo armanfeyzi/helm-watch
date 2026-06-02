@@ -34,6 +34,11 @@ jobs:
       - name: Go vet
         run: go vet ./...
 
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.12
+
       - name: Build Linux amd64 binary
         run: |
           mkdir -p dist
