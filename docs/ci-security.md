@@ -8,7 +8,8 @@ Workflow: [`.github/workflows/ci.yml`](../.github/workflows/ci.yml)
 
 | Job | Tools | What it checks |
 |-----|-------|----------------|
-| `security-static` | gitleaks, Semgrep | Git secrets; Go/Kubernetes SAST rules |
+| `security-static` | gitleaks | Git secrets |
+| `semgrep` | Semgrep (`semgrep/semgrep` image) | Go/Kubernetes SAST rules |
 | `container-security` | Trivy | CVEs and misconfig in the `helm-watch:ci` image |
 | `test-and-build` | gosec (existing) | Go-specific high-confidence SAST |
 
@@ -24,8 +25,8 @@ Workflow: [`.github/workflows/ci.yml`](../.github/workflows/ci.yml)
 ## Semgrep (SAST)
 
 - **Why:** Broader static analysis than gosec alone (logic bugs, unsafe patterns, security anti-patterns in Go and YAML-adjacent rules).
-- **How:** Rulesets `p/golang` and `p/security-audit` via `semgrep/semgrep-action`.
-- **Report-only:** `continue-on-error: true`.
+- **How:** Dedicated job using the official [`semgrep/semgrep`](https://hub.docker.com/r/semgrep/semgrep) container and `semgrep scan --config p/golang --config p/security-audit`. The legacy `semgrep/semgrep-action@v1` wrapper is deprecated and its `returntocorp/semgrep-agent` image is no longer pullable.
+- **Report-only:** `continue-on-error: true` (findings may still exit non-zero).
 - **Later (ARM-10):** Enable Semgrep `--error` / fail on ERROR severity after tuning false positives.
 
 ## Trivy (container image)

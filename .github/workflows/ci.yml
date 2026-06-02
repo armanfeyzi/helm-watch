@@ -117,12 +117,18 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         continue-on-error: true
 
+  semgrep:
+    name: Security — SAST (report-only)
+    runs-on: ubuntu-latest
+    container:
+      image: semgrep/semgrep
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: SAST (Semgrep)
-        uses: semgrep/semgrep-action@v1
-        with:
-          config: >-
-            p/golang
-            p/security-audit
+        run: semgrep scan --config p/golang --config p/security-audit
         continue-on-error: true
 
   container-security:
