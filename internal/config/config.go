@@ -1,8 +1,10 @@
 package config
 
 import (
+	"errors"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -132,10 +134,41 @@ func getEnvFloat32(key string, fallback float32) float32 {
 	return float32(f)
 }
 
+func validateCredentialsFilePath(path string) (string, error) {
+	path = strings.TrimSpace(path)
+	if path == "" {
+		return "", errors.New("empty credentials file path")
+	}
+	if strings.Contains(path, "..") {
+		return "", errors.New("credentials file path must not contain ..")
+	}
+	clean := filepath.Clean(path)
+	if !filepath.IsAbs(clean) {
+		return "", errors.New("credentials file path must be absolute")
+	}
+	return clean, nil
+}
+
 func loadRegistryCredentialsFromEnv() map[string]registryauth.Credential {
-	filePath := strings.TrimSpace(os.Getenv("HELM_WATCH_REGISTRY_CREDENTIALS_FILE"))
-	if filePath != "" {
-		data, err := os.ReadFile(filePath)
+	rawPath := strings.TrimSpace(os.Getenv("HELM_WATCH_REGISTRY_CREDENTIALS_FILE"))
+	if rawPath != "" {
+		filePath, err := validateCredentialsFilePath(rawPath)
+		if err != nil {
+			slog.Warn("registry credentials file path invalid", "path", rawPath, "error", err)
+			return nil
+		}
+		dir, name := filepath.Split(filePath)
+		if name == "" || name == "." || name == ".." {
+			slog.Warn("registry credentials file path invalid", "path", filePath, "error", "invalid file name")
+			return nil
+		}
+		root, err := os.OpenRoot(dir)
+		if err != nil {
+			slog.Warn("registry credentials file not loaded", "path", filePath, "error", err)
+			return nil
+		}
+		defer root.Close()
+		data, err := root.ReadFile(name)
 		if err != nil {
 			slog.Warn("registry credentials file not loaded", "path", filePath, "error", err)
 			return nil

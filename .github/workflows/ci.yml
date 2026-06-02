@@ -39,6 +39,11 @@ jobs:
         with:
           version: v2.12
 
+      - name: SAST (gosec)
+        uses: securego/gosec@master
+        with:
+          args: -severity high -confidence high ./...
+
       - name: Build Linux amd64 binary
         run: |
           mkdir -p dist
