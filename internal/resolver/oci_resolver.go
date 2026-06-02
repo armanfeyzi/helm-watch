@@ -310,7 +310,7 @@ func (r *OCIResolver) negotiateBearerToken(ctx context.Context, wwwAuthenticate,
 	if err != nil {
 		return "", fmt.Errorf("fetch oci token: %w", err)
 	}
-	defer tokResp.Body.Close()
+	defer func() { _ = tokResp.Body.Close() }()
 
 	if tokResp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("oci token status: %s", tokResp.Status)
