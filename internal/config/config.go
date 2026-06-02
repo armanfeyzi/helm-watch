@@ -140,7 +140,7 @@ func validateCredentialsFilePath(path string) (string, error) {
 		return "", errors.New("empty credentials file path")
 	}
 	if strings.Contains(path, "..") {
-		return "", errors.New("credentials file path must not contain ..")
+		return "", errors.New("credentials file path must not contain parent segments")
 	}
 	clean := filepath.Clean(path)
 	if !filepath.IsAbs(clean) {
@@ -167,7 +167,7 @@ func loadRegistryCredentialsFromEnv() map[string]registryauth.Credential {
 			slog.Warn("registry credentials file not loaded", "path", filePath, "error", err)
 			return nil
 		}
-		defer root.Close()
+		defer func() { _ = root.Close() }()
 		data, err := root.ReadFile(name)
 		if err != nil {
 			slog.Warn("registry credentials file not loaded", "path", filePath, "error", err)

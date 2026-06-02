@@ -14,7 +14,7 @@ func TestValidateCredentialsFilePath(t *testing.T) {
 		{name: "absolute ok", path: "/var/run/secrets/creds.json", want: "/var/run/secrets/creds.json"},
 		{name: "empty", path: "", wantErr: true},
 		{name: "relative", path: "creds.json", wantErr: true},
-		{name: "dot dot", path: "/var/run/../etc/passwd", wantErr: true},
+		{name: "parent segment", path: "/var/run/../etc/passwd", wantErr: true},
 		{name: "whitespace trimmed", path: "  /etc/creds.json  ", want: "/etc/creds.json"},
 	}
 
