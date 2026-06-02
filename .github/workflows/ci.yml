@@ -1,3 +1,6 @@
+# CI for helm-watch.
+# Optional security jobs (gitleaks, Semgrep, Trivy) run in report-only mode; see docs/ci-security.md.
+
 name: CI
 
 on:
@@ -95,3 +98,73 @@ jobs:
         with:
           name: helm-watch-image-tar
           path: dist/helm-watch-image.tar
+
+  security-static:
+    name: Security — secrets (report-only)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout (full history for gitleaks)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Secret scan (gitleaks)
+        id: gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true
+
+  semgrep:
+    name: Security — SAST (report-only)
+    runs-on: ubuntu-latest
+    container:
+      image: semgrep/semgrep
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: SAST (Semgrep)
+        run: semgrep scan --config p/golang --config p/security-audit
+        continue-on-error: true
+
+  container-security:
+    name: Security — container image (report-only)
+    needs: test-and-build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download image artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: helm-watch-image-tar
+          path: dist
+
+      - name: Load image
+        run: docker load -i dist/helm-watch-image.tar
+
+      - name: Trivy image scan (table)
+        uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
+        with:
+          image-ref: helm-watch:ci
+          format: table
+          severity: CRITICAL,HIGH,MEDIUM,LOW,UNKNOWN
+          exit-code: "0"
+
+      - name: Trivy image scan (SARIF report)
+        uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
+        with:
+          image-ref: helm-watch:ci
+          format: sarif
+          output: trivy-image.sarif
+          severity: CRITICAL,HIGH,MEDIUM,LOW,UNKNOWN
+          exit-code: "0"
+
+      - name: Upload Trivy SARIF
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-image-sarif
+          path: trivy-image.sarif
+          if-no-files-found: warn
